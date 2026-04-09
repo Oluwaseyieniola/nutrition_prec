@@ -14,13 +14,14 @@ def generate_synthetic_wearable_data(days=7):
         data.append({
             "date": base_date - datetime.timedelta(days=i),
             "steps": np.random.randint(3000, 13000),
-            "strain": np.random.uniform(5, 18).round(1),
+            "strain": round(np.random.uniform(5, 18), 1),       # ← fixed
             "HRV": np.random.randint(30, 100),
             "sleep_eff": np.random.uniform(70, 98).round(1),
             "protein": np.random.randint(50, 160),
             "meal_timing": np.random.uniform(0.6, 1.0).round(2),
         })
     return pd.DataFrame(data)
+
 
 def simulate_supply_chain(food):
     np.random.seed(abs(hash(food)) % 10**6)
