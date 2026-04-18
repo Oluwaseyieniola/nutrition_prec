@@ -3,15 +3,8 @@ import pandas as pd
 import numpy as np
 import datetime
 import hashlib
-from sqlalchemy import create_engine
 
 st.set_page_config(page_title="Food Intelligence System", layout="centered")
-
-# =========================================================
-# 🔌 DATABASE
-# =========================================================
-DB_URL = "postgresql://postgres@localhost:5432/fooddb"
-engine = create_engine(DB_URL)
 
 # =========================================================
 # 🌍 FOOD DATA
@@ -42,13 +35,22 @@ PRICE_MAP = {
 }
 
 # =========================================================
+# 🧠 SESSION STATE (IN-MEMORY)
+# =========================================================
+if "users" not in st.session_state:
+    st.session_state["users"] = []
+
+if "history" not in st.session_state:
+    st.session_state["history"] = []
+
+# =========================================================
 # 🧠 HEALTH
 # =========================================================
 def calculate_bmi(w, h):
     return round(w / (h**2), 1)
 
 # =========================================================
-# 🔬 SUPPLY CHAIN
+# 🔬 SUPPLY CHAIN SIMULATION
 # =========================================================
 def simulate_supply(food):
     seed = int(hashlib.md5(food.encode()).hexdigest(), 16) % 10**6
@@ -124,42 +126,39 @@ def recommend_foods(user_id):
     return sorted(scores, key=lambda x: x[1], reverse=True)[:5]
 
 # =========================================================
-# 🗄️ DB FUNCTIONS
+# 🗄️ LOCAL DATA FUNCTIONS
 # =========================================================
 def create_user(w, h, sleep, goal):
-    df = pd.DataFrame([{
+    user_id = len(st.session_state["users"]) + 1
+
+    user = {
+        "id": user_id,
         "weight_kg": w,
         "height_m": h,
         "bmi": calculate_bmi(w,h),
         "sleep_hours": sleep,
         "goal": goal
-    }])
-    df.to_sql("users", engine, if_exists="append", index=False)
+    }
+
+    st.session_state["users"].append(user)
 
 def load_users():
-    try:
-        return pd.read_sql("SELECT * FROM users", engine)
-    except:
-        return pd.DataFrame()
+    return pd.DataFrame(st.session_state["users"])
 
 def save_decision(user_id, food, score, decision):
-    df = pd.DataFrame([{
+    st.session_state["history"].append({
         "user_id": user_id,
         "food_name": food,
         "score": score,
         "decision": decision,
         "created_at": datetime.datetime.now()
-    }])
-    df.to_sql("decisions", engine, if_exists="append", index=False)
+    })
 
 def load_history(user_id):
-    try:
-        return pd.read_sql(
-            f"SELECT * FROM decisions WHERE user_id = {user_id}",
-            engine
-        )
-    except:
-        return pd.DataFrame()
+    df = pd.DataFrame(st.session_state["history"])
+    if df.empty:
+        return df
+    return df[df["user_id"] == user_id]
 
 # =========================================================
 # UI
@@ -186,7 +185,7 @@ if page == "Create User":
 
     if st.button("Save"):
         create_user(w,h,sleep,goal)
-        st.success("User saved")
+        st.success("User created")
 
 # =========================================================
 # FOOD DEEP DIVE
@@ -195,10 +194,11 @@ elif page == "Food Deep Dive":
     food = st.selectbox("Food", FOODS)
 
     df = simulate_supply(food)
+
     st.dataframe(df)
     st.line_chart(df.set_index("Stage"))
 
-    st.metric("Score", compute_score(df))
+    st.metric("Food Score", compute_score(df))
 
 # =========================================================
 # DECISION ENGINE
