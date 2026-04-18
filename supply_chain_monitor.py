@@ -5,7 +5,7 @@ import datetime
 import hashlib
 
 st.set_page_config(page_title="Food Intelligence System MVP", layout="centered")
-
+DB_URL = "postgresql://postgres@localhost:5432/fooddb"
 # =========================================================
 # 🌍 REAL-WORLD DATA
 # =========================================================
@@ -291,3 +291,4 @@ elif page == "Habit Tracker":
         st.metric("Habit Score", round(st.session_state["habit_score"],2))
     else:
         st.write("No decisions recorded yet")
+        
