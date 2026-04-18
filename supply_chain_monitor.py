@@ -3,292 +3,261 @@ import pandas as pd
 import numpy as np
 import datetime
 import hashlib
+from sqlalchemy import create_engine
 
-st.set_page_config(page_title="Food Intelligence System MVP", layout="centered")
+st.set_page_config(page_title="Food Intelligence System", layout="centered")
+
+# =========================================================
+# 🔌 DATABASE
+# =========================================================
 DB_URL = "postgresql://postgres@localhost:5432/fooddb"
-# =========================================================
-# 🌍 REAL-WORLD DATA
-# =========================================================
+engine = create_engine(DB_URL)
 
-FOOD_DB = {
-    "Salmon": {"category": "protein", "origin": "Norway"},
-    "Oats": {"category": "grain", "origin": "Canada"},
-    "Blueberries": {"category": "fruit", "origin": "USA"},
-    "Lentils": {"category": "legume", "origin": "India"},
-    "Spinach": {"category": "vegetable", "origin": "Netherlands"},
-    "Chicken Breast": {"category": "protein", "origin": "Brazil"},
-    "Avocado": {"category": "fat", "origin": "Mexico"},
-    "Eggs": {"category": "protein", "origin": "UAE"},
-    "Brown Rice": {"category": "grain", "origin": "Thailand"},
-    "Yogurt": {"category": "dairy", "origin": "France"}
+# =========================================================
+# 🌍 FOOD DATA
+# =========================================================
+FOODS = [
+    "Salmon","Oats","Blueberries","Lentils","Spinach",
+    "Chicken Breast","Avocado","Eggs","Brown Rice","Yogurt"
+]
+
+FOOD_FEATURES = {
+    "Salmon": [25, 0, 13, 2, 15],
+    "Oats": [13, 1, 7, 2, 3],
+    "Blueberries": [1, 10, 0, 1, 6],
+    "Lentils": [9, 2, 0.5, 1, 2],
+    "Spinach": [3, 1, 0, 1, 4],
+    "Chicken Breast": [31, 0, 3, 2, 10],
+    "Avocado": [2, 1, 15, 1, 5],
+    "Eggs": [13, 1, 10, 1, 4],
+    "Brown Rice": [3, 1, 1, 2, 3],
+    "Yogurt": [10, 5, 4, 3, 5]
 }
 
-FARMS = [
-    {"name": "Green Valley Farm", "location": "Netherlands"},
-    {"name": "Al Rawabi Farms", "location": "UAE"},
-    {"name": "Blue River Aquaculture", "location": "Norway"},
-    {"name": "Golden Prairie Farms", "location": "Canada"}
-]
-
-RETAILERS = [
-    {"name": "Carrefour", "location": "UAE"},
-    {"name": "Lulu Hypermarket", "location": "UAE"},
-    {"name": "Spinneys", "location": "UAE"},
-    {"name": "Waitrose", "location": "UAE"}
-]
+PRICE_MAP = {
+    "Salmon": 15, "Oats": 3, "Blueberries": 6,
+    "Lentils": 2, "Spinach": 4,
+    "Chicken Breast": 10, "Avocado": 5,
+    "Eggs": 4, "Brown Rice": 3, "Yogurt": 5
+}
 
 # =========================================================
-# 🧠 HEALTH METRICS
+# 🧠 HEALTH
 # =========================================================
+def calculate_bmi(w, h):
+    return round(w / (h**2), 1)
 
-def calculate_bmi(weight_kg, height_m):
-    return round(weight_kg / (height_m ** 2), 1)
+# =========================================================
+# 🔬 SUPPLY CHAIN
+# =========================================================
+def simulate_supply(food):
+    seed = int(hashlib.md5(food.encode()).hexdigest(), 16) % 10**6
+    np.random.seed(seed)
 
-def gen_user_realistic():
-    weight = np.random.uniform(60, 110)
-    height = np.random.uniform(1.55, 1.95)
-
-    return {
-        "weight_kg": round(weight, 1),
-        "height_m": round(height, 2),
-        "BMI": calculate_bmi(weight, height),
-        "sleep_hours": round(np.random.uniform(4.5, 8.5), 2),
-        "strain": round(np.random.uniform(5, 18), 1),
-        "goal": np.random.choice(["fitness", "glucose_control", "fat_loss"]),
-        "activity_level": np.random.choice(["low", "moderate", "high"])
+    nutrients = {
+        "Vitamin C": np.random.uniform(40, 100),
+        "Protein": np.random.uniform(5, 30),
+        "Polyphenols": np.random.uniform(50, 120)
     }
 
-# =========================================================
-# 🔬 SUPPLY CHAIN ENGINE
-# =========================================================
+    data = []
+    for stage in ["Farm","Harvest","Storage","Transport","Retail"]:
+        temp = np.random.uniform(2, 35)
+        days = np.random.uniform(0.5, 5)
 
-class SupplyChainEngine:
-    def simulate(food):
-        seed = int(hashlib.md5(food.encode()).hexdigest(), 16) % 10**6
-        np.random.seed(seed)
+        decay = np.exp(-0.05 * days * (temp / 25))
+        for k in nutrients:
+            nutrients[k] *= decay
 
-        stages = ["Farm", "Harvest", "Storage", "Transport", "Retail"]
+        data.append({
+            "Stage": stage,
+            **{k: round(v,1) for k,v in nutrients.items()}
+        })
 
-        nutrients = {
-            "Vitamin C": np.random.uniform(40, 100),
-            "Protein": np.random.uniform(5, 30),
-            "Polyphenols": np.random.uniform(50, 120)
-        }
-
-        data = []
-        for stage in stages:
-            temp = np.random.uniform(2, 35)
-            days = np.random.uniform(0.5, 5)
-
-            decay = np.exp(-0.05 * days * (temp / 25))
-            for k in nutrients:
-                nutrients[k] *= decay
-
-            data.append({
-                "Stage": stage,
-                "Temperature (°C)": round(temp, 1),
-                "Duration (days)": round(days, 1),
-                **{k: round(v,1) for k,v in nutrients.items()}
-            })
-
-        return pd.DataFrame(data)
-
-def simulate_supply_real(food):
-    farm = np.random.choice(FARMS)
-    retailer = np.random.choice(RETAILERS)
-
-    df = SupplyChainEngine.simulate(food)
-    df["Farm"] = farm["name"]
-    df["Origin"] = farm["location"]
-    df["Retailer"] = retailer["name"]
-
-    return df
+    return pd.DataFrame(data)
 
 # =========================================================
-# 🌱 FOOD SYSTEM ENGINE
+# 🧠 SCORING
 # =========================================================
-
-class FoodSystemEngine:
-
-    price_map = {
-        "Salmon": 15, "Oats": 3, "Blueberries": 6,
-        "Lentils": 2, "Spinach": 4,
-        "Chicken Breast": 10, "Avocado": 5,
-        "Eggs": 4, "Brown Rice": 3, "Yogurt": 5
-    }
-
-    processing_map = {
-        "Salmon": 2, "Oats": 2, "Blueberries": 1,
-        "Lentils": 1, "Spinach": 1,
-        "Chicken Breast": 2, "Avocado": 1,
-        "Eggs": 1, "Brown Rice": 2, "Yogurt": 3
-    }
-
-    def environmental_impact(food):
-        return {
-            "carbon": round(np.random.uniform(1, 10), 2),
-            "water": round(np.random.uniform(50, 500), 1),
-            "biodiversity": round(np.random.uniform(0, 1), 2)
-        }
-
-# =========================================================
-# 🧠 SCORING ENGINE
-# =========================================================
-
-class ScoringEngine:
-
-    def nutrition_score(df):
-        latest = df.iloc[-1]
-        return (latest["Vitamin C"] + latest["Protein"] + latest["Polyphenols"]) / 300
-
-    def compute(food, df):
-        nutrition = ScoringEngine.nutrition_score(df)
-        processing = FoodSystemEngine.processing_map[food]
-        env = FoodSystemEngine.environmental_impact(food)
-
-        score = (
-            0.5 * nutrition +
-            0.3 * (1 / processing) +
-            0.2 * (1 / env["carbon"])
-        )
-
-        return round(score, 2), env, processing
-
-# =========================================================
-# 🧠 BEHAVIOR ENGINE
-# =========================================================
-
-def decision_engine(user, food_score, price):
-    convenience = np.random.uniform(0.3, 1.0)
-    price_factor = 1 / price
-    health_weight = food_score
-
-    decision_score = (
-        0.4 * convenience +
-        0.3 * price_factor +
-        0.3 * health_weight
+def compute_score(df):
+    last = df.iloc[-1]
+    return round(
+        (last["Vitamin C"] + last["Protein"] + last["Polyphenols"]) / 300, 2
     )
 
-    return round(decision_score, 2)
+# =========================================================
+# 🧠 BEHAVIOR + RECOMMENDER
+# =========================================================
+def decision_engine(score, price):
+    return round(0.4*np.random.random() + 0.3*(1/price) + 0.3*score, 2)
+
+def build_user_profile(history):
+    if history.empty:
+        return np.zeros(5)
+
+    profile = np.zeros(5)
+
+    for _, row in history.iterrows():
+        vec = np.array(FOOD_FEATURES.get(row["food_name"], [0]*5))
+
+        if row["decision"] == "accepted":
+            profile += vec
+        else:
+            profile -= vec * 0.5
+
+    return profile / (len(history) + 1)
+
+def cosine_similarity(a, b):
+    if np.linalg.norm(a) == 0 or np.linalg.norm(b) == 0:
+        return 0
+    return np.dot(a, b) / (np.linalg.norm(a)*np.linalg.norm(b))
+
+def recommend_foods(user_id):
+    history = load_history(user_id)
+    user_vec = build_user_profile(history)
+
+    scores = []
+    for food, vec in FOOD_FEATURES.items():
+        sim = cosine_similarity(user_vec, np.array(vec))
+        scores.append((food, round(sim,3)))
+
+    return sorted(scores, key=lambda x: x[1], reverse=True)[:5]
 
 # =========================================================
-# 📊 SESSION STATE
+# 🗄️ DB FUNCTIONS
 # =========================================================
+def create_user(w, h, sleep, goal):
+    df = pd.DataFrame([{
+        "weight_kg": w,
+        "height_m": h,
+        "bmi": calculate_bmi(w,h),
+        "sleep_hours": sleep,
+        "goal": goal
+    }])
+    df.to_sql("users", engine, if_exists="append", index=False)
 
-if "history" not in st.session_state:
-    st.session_state["history"] = []
+def load_users():
+    try:
+        return pd.read_sql("SELECT * FROM users", engine)
+    except:
+        return pd.DataFrame()
 
-if "habit_score" not in st.session_state:
-    st.session_state["habit_score"] = 0
-
-def log_decision(user, food, score, decision):
-    st.session_state["history"].append({
-        "time": datetime.datetime.now(),
-        "food": food,
+def save_decision(user_id, food, score, decision):
+    df = pd.DataFrame([{
+        "user_id": user_id,
+        "food_name": food,
         "score": score,
-        "decision": decision
-    })
+        "decision": decision,
+        "created_at": datetime.datetime.now()
+    }])
+    df.to_sql("decisions", engine, if_exists="append", index=False)
 
-    if decision == "accepted":
-        st.session_state["habit_score"] += 1
-    else:
-        st.session_state["habit_score"] -= 0.5
+def load_history(user_id):
+    try:
+        return pd.read_sql(
+            f"SELECT * FROM decisions WHERE user_id = {user_id}",
+            engine
+        )
+    except:
+        return pd.DataFrame()
 
 # =========================================================
 # UI
 # =========================================================
-
 st.title("🥗 Food Intelligence System")
 
-page = st.sidebar.radio("Navigation",
-    ["User Profile","Food Deep Dive","Decision Engine","Habit Tracker"]
-)
-
-foods = list(FOOD_DB.keys())
+page = st.sidebar.radio("Navigation", [
+    "Create User",
+    "Food Deep Dive",
+    "Decision Engine",
+    "Habit Tracker"
+])
 
 # =========================================================
-# USER PROFILE
+# CREATE USER
 # =========================================================
+if page == "Create User":
+    st.header("👤 Create User")
 
-if page == "User Profile":
-    st.header("👤 User Profile")
+    w = st.number_input("Weight (kg)", 40.0, 150.0, 75.0)
+    h = st.number_input("Height (m)", 1.4, 2.2, 1.75)
+    sleep = st.number_input("Sleep (hours)", 3.0, 10.0, 7.0)
+    goal = st.selectbox("Goal", ["fitness","fat_loss","glucose_control"])
 
-    user = gen_user_realistic()
-    st.json(user)
+    if st.button("Save"):
+        create_user(w,h,sleep,goal)
+        st.success("User saved")
 
 # =========================================================
 # FOOD DEEP DIVE
 # =========================================================
-
 elif page == "Food Deep Dive":
-    food = st.selectbox("Select Food", foods)
+    food = st.selectbox("Food", FOODS)
 
-    df = simulate_supply_real(food)
-
-    st.subheader("📦 Supply Chain Trace")
+    df = simulate_supply(food)
     st.dataframe(df)
+    st.line_chart(df.set_index("Stage"))
 
-    st.subheader("📉 Nutrient Degradation")
-    st.line_chart(df.set_index("Stage")[["Vitamin C","Protein","Polyphenols"]])
-
-    score, env, processing = ScoringEngine.compute(food, df)
-
-    st.subheader("🧠 Food Intelligence")
-    st.write(f"Unified Score: {score}")
-    st.write(f"Processing Level: {processing}")
-
-    st.subheader("🌍 Environmental Impact")
-    st.json(env)
-
-    st.write(f"💰 Price: ${FoodSystemEngine.price_map[food]}")
+    st.metric("Score", compute_score(df))
 
 # =========================================================
 # DECISION ENGINE
 # =========================================================
-
 elif page == "Decision Engine":
-    food = st.selectbox("Choose Food", foods)
+    users = load_users()
 
-    df = simulate_supply_real(food)
-    score, env, _ = ScoringEngine.compute(food, df)
+    if users.empty:
+        st.warning("Create a user first")
+        st.stop()
 
-    user = gen_user_realistic()
+    user_id = st.selectbox("User", users["id"])
+    food = st.selectbox("Food", FOODS)
 
-    decision_score = decision_engine(user, score, FoodSystemEngine.price_map[food])
+    df = simulate_supply(food)
+    score = compute_score(df)
 
-    st.subheader("👤 User")
-    st.json(user)
+    decision_score = decision_engine(score, PRICE_MAP[food])
 
-    st.subheader("🧠 Decision Intelligence")
     st.write(f"Food Score: {score}")
     st.write(f"Decision Score: {decision_score}")
 
     if decision_score > 0.6:
-        st.success("User likely to choose this food")
+        st.success("Likely to choose")
     else:
-        st.warning("User may reject this food")
+        st.warning("May reject")
 
-    if st.button("✅ Choose Food"):
-        log_decision(user, food, score, "accepted")
-        st.success("Decision logged")
+    if st.button("Accept"):
+        save_decision(user_id, food, score, "accepted")
+        st.success("Saved")
 
-    if st.button("❌ Reject Food"):
-        log_decision(user, food, score, "rejected")
-        st.warning("Decision logged")
+    if st.button("Reject"):
+        save_decision(user_id, food, score, "rejected")
+        st.warning("Saved")
 
 # =========================================================
-# HABIT TRACKER
+# HABIT TRACKER + RECOMMENDER
 # =========================================================
-
 elif page == "Habit Tracker":
-    st.header("📊 Habit Tracking")
+    users = load_users()
 
-    history_df = pd.DataFrame(st.session_state["history"])
+    if users.empty:
+        st.warning("No users")
+        st.stop()
 
-    if not history_df.empty:
-        st.dataframe(history_df)
-        st.line_chart(history_df.set_index("time")["score"])
-        st.metric("Habit Score", round(st.session_state["habit_score"],2))
+    user_id = st.selectbox("User", users["id"])
+
+    history = load_history(user_id)
+
+    if not history.empty:
+        st.dataframe(history)
+        st.line_chart(history["score"])
+
+        st.subheader("🧠 Recommendations")
+
+        recs = recommend_foods(user_id)
+
+        for food, score in recs:
+            st.write(f"{food} → Match: {score}")
+
     else:
-        st.write("No decisions recorded yet")
-        
+        st.info("No history yet → explore foods first")
