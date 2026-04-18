@@ -35,7 +35,7 @@ PRICE_MAP = {
 }
 
 # =========================================================
-# 🧠 SESSION STATE (IN-MEMORY)
+# 🧠 SESSION STATE
 # =========================================================
 if "users" not in st.session_state:
     st.session_state["users"] = []
@@ -44,13 +44,44 @@ if "history" not in st.session_state:
     st.session_state["history"] = []
 
 # =========================================================
+# ⌚ WEARABLE ENGINE
+# =========================================================
+class WearableEngine:
+
+    @staticmethod
+    def simulate(user_id, days=7):
+        np.random.seed(user_id)
+
+        data = []
+        for i in range(days):
+            data.append({
+                "date": datetime.date.today() - datetime.timedelta(days=i),
+                "hrv": np.random.randint(40, 100),
+                "resting_hr": np.random.randint(50, 75),
+                "sleep_hours": round(np.random.uniform(4.5, 8.5), 2),
+                "recovery": np.random.randint(30, 95),
+                "strain": round(np.random.uniform(5, 18), 1)
+            })
+
+        return pd.DataFrame(data)
+
+    @staticmethod
+    def aggregate(df):
+        return {
+            "avg_hrv": int(df["hrv"].mean()),
+            "avg_sleep": round(df["sleep_hours"].mean(), 2),
+            "avg_strain": round(df["strain"].mean(), 1),
+            "avg_recovery": int(df["recovery"].mean())
+        }
+
+# =========================================================
 # 🧠 HEALTH
 # =========================================================
 def calculate_bmi(w, h):
     return round(w / (h**2), 1)
 
 # =========================================================
-# 🔬 SUPPLY CHAIN SIMULATION
+# 🔬 SUPPLY CHAIN
 # =========================================================
 def simulate_supply(food):
     seed = int(hashlib.md5(food.encode()).hexdigest(), 16) % 10**6
@@ -88,55 +119,38 @@ def compute_score(df):
     )
 
 # =========================================================
-# 🧠 BEHAVIOR + RECOMMENDER
+# 🧠 DECISION ENGINE
 # =========================================================
-def decision_engine(score, price):
-    return round(0.4*np.random.random() + 0.3*(1/price) + 0.3*score, 2)
+def decision_engine(user, score, price):
+    recovery_factor = user["recovery"] / 100
+    strain_penalty = 1 - (user["strain"] / 20)
 
-def build_user_profile(history):
-    if history.empty:
-        return np.zeros(5)
-
-    profile = np.zeros(5)
-
-    for _, row in history.iterrows():
-        vec = np.array(FOOD_FEATURES.get(row["food_name"], [0]*5))
-
-        if row["decision"] == "accepted":
-            profile += vec
-        else:
-            profile -= vec * 0.5
-
-    return profile / (len(history) + 1)
-
-def cosine_similarity(a, b):
-    if np.linalg.norm(a) == 0 or np.linalg.norm(b) == 0:
-        return 0
-    return np.dot(a, b) / (np.linalg.norm(a)*np.linalg.norm(b))
-
-def recommend_foods(user_id):
-    history = load_history(user_id)
-    user_vec = build_user_profile(history)
-
-    scores = []
-    for food, vec in FOOD_FEATURES.items():
-        sim = cosine_similarity(user_vec, np.array(vec))
-        scores.append((food, round(sim,3)))
-
-    return sorted(scores, key=lambda x: x[1], reverse=True)[:5]
+    return round(
+        0.3 * score +
+        0.3 * (1 / price) +
+        0.2 * recovery_factor +
+        0.2 * strain_penalty,
+        2
+    )
 
 # =========================================================
-# 🗄️ LOCAL DATA FUNCTIONS
+# 🗄️ DATA FUNCTIONS
 # =========================================================
-def create_user(w, h, sleep, goal):
+def create_user(w, h, goal):
     user_id = len(st.session_state["users"]) + 1
+
+    wearable_df = WearableEngine.simulate(user_id)
+    metrics = WearableEngine.aggregate(wearable_df)
 
     user = {
         "id": user_id,
         "weight_kg": w,
         "height_m": h,
-        "bmi": calculate_bmi(w,h),
-        "sleep_hours": sleep,
+        "bmi": calculate_bmi(w, h),
+        "sleep_hours": metrics["avg_sleep"],
+        "hrv": metrics["avg_hrv"],
+        "recovery": metrics["avg_recovery"],
+        "strain": metrics["avg_strain"],
         "goal": goal
     }
 
@@ -167,6 +181,7 @@ st.title("🥗 Food Intelligence System")
 
 page = st.sidebar.radio("Navigation", [
     "Create User",
+    "Wearable Data",
     "Food Deep Dive",
     "Decision Engine",
     "Habit Tracker"
@@ -180,12 +195,33 @@ if page == "Create User":
 
     w = st.number_input("Weight (kg)", 40.0, 150.0, 75.0)
     h = st.number_input("Height (m)", 1.4, 2.2, 1.75)
-    sleep = st.number_input("Sleep (hours)", 3.0, 10.0, 7.0)
     goal = st.selectbox("Goal", ["fitness","fat_loss","glucose_control"])
 
     if st.button("Save"):
-        create_user(w,h,sleep,goal)
-        st.success("User created")
+        create_user(w, h, goal)
+        st.success("User created with wearable data")
+
+# =========================================================
+# WEARABLE DATA
+# =========================================================
+elif page == "Wearable Data":
+    users = load_users()
+
+    if users.empty:
+        st.warning("Create a user first")
+        st.stop()
+
+    user_id = st.selectbox("User", users["id"])
+
+    df = WearableEngine.simulate(user_id)
+
+    st.subheader("⌚ Wearable Data")
+    st.dataframe(df)
+
+    st.line_chart(df.set_index("date")[["hrv","sleep_hours","strain"]])
+
+    st.subheader("Aggregated Metrics")
+    st.json(WearableEngine.aggregate(df))
 
 # =========================================================
 # FOOD DEEP DIVE
@@ -211,12 +247,14 @@ elif page == "Decision Engine":
         st.stop()
 
     user_id = st.selectbox("User", users["id"])
+    user = users[users["id"] == user_id].iloc[0]
+
     food = st.selectbox("Food", FOODS)
 
     df = simulate_supply(food)
     score = compute_score(df)
 
-    decision_score = decision_engine(score, PRICE_MAP[food])
+    decision_score = decision_engine(user, score, PRICE_MAP[food])
 
     st.write(f"Food Score: {score}")
     st.write(f"Decision Score: {decision_score}")
@@ -235,7 +273,7 @@ elif page == "Decision Engine":
         st.warning("Saved")
 
 # =========================================================
-# HABIT TRACKER + RECOMMENDER
+# HABIT TRACKER
 # =========================================================
 elif page == "Habit Tracker":
     users = load_users()
@@ -245,19 +283,10 @@ elif page == "Habit Tracker":
         st.stop()
 
     user_id = st.selectbox("User", users["id"])
-
     history = load_history(user_id)
 
     if not history.empty:
         st.dataframe(history)
         st.line_chart(history["score"])
-
-        st.subheader("🧠 Recommendations")
-
-        recs = recommend_foods(user_id)
-
-        for food, score in recs:
-            st.write(f"{food} → Match: {score}")
-
     else:
-        st.info("No history yet → explore foods first")
+        st.write("No decisions recorded yet")
