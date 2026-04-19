@@ -14,24 +14,20 @@ FOODS = [
     "Chicken Breast","Avocado","Eggs","Brown Rice","Yogurt"
 ]
 
-FOOD_FEATURES = {
-    "Salmon": [25, 0, 13, 2, 15],
-    "Oats": [13, 1, 7, 2, 3],
-    "Blueberries": [1, 10, 0, 1, 6],
-    "Lentils": [9, 2, 0.5, 1, 2],
-    "Spinach": [3, 1, 0, 1, 4],
-    "Chicken Breast": [31, 0, 3, 2, 10],
-    "Avocado": [2, 1, 15, 1, 5],
-    "Eggs": [13, 1, 10, 1, 4],
-    "Brown Rice": [3, 1, 1, 2, 3],
-    "Yogurt": [10, 5, 4, 3, 5]
-}
-
 PRICE_MAP = {
     "Salmon": 15, "Oats": 3, "Blueberries": 6,
     "Lentils": 2, "Spinach": 4,
     "Chicken Breast": 10, "Avocado": 5,
     "Eggs": 4, "Brown Rice": 3, "Yogurt": 5
+}
+
+# =========================================================
+# 🇦🇪 UAE ENVIRONMENT MODEL
+# =========================================================
+UAE_ENVIRONMENT = {
+    "availability": {"healthy": 0.7, "processed": 0.9},
+    "price_sensitivity": 0.6,
+    "convenience_bias": 0.8
 }
 
 # =========================================================
@@ -121,70 +117,102 @@ def explain_supply_chain(df):
 
         explanations.append(
             f"At the {row['Stage']} stage, the food experienced {state}. "
-            f"Vitamin C is around {row['Vitamin C']} and protein is about {row['Protein']}."
+            f"Vitamin C ≈ {row['Vitamin C']} and protein ≈ {row['Protein']}."
         )
     return explanations
 
 def interpret_health(user):
     messages = []
     if user["sleep_hours"] < 6:
-        messages.append("Your sleep is low. This can lead to fatigue and weaker immunity over time.")
+        messages.append("Low sleep may lead to fatigue and weaker immunity.")
     if user["recovery"] < 50:
-        messages.append("Your recovery is low. Your body may be under stress and not fully repaired.")
+        messages.append("Low recovery suggests your body is under stress.")
     if user["bmi"] > 27:
-        messages.append("Your BMI suggests increased long-term metabolic risk.")
+        messages.append("BMI indicates elevated metabolic risk.")
     return messages
 
 def disease_risk(user):
     risks = []
     if user["sleep_hours"] < 6:
-        risks.append("Risk of fatigue, weakened immunity, and metabolic imbalance")
+        risks.append("Fatigue and metabolic imbalance risk")
     if user["bmi"] > 28:
-        risks.append("Risk of type 2 diabetes and heart disease")
+        risks.append("Type 2 diabetes and heart disease risk")
     if user["strain"] > 15:
-        risks.append("Risk of chronic stress and inflammation")
+        risks.append("Chronic stress and inflammation risk")
     return risks
 
-def explain_food_impact(food):
-    mapping = {
-        "Salmon": "Supports heart health and reduces inflammation.",
-        "Oats": "Helps control blood sugar and supports digestion.",
-        "Blueberries": "Improves brain health and slows aging.",
-    }
-    return mapping.get(food, "Supports overall body balance and health.")
-
 # =========================================================
-# BEHAVIOR TRACKING
+# BEHAVIOR ENGINE
 # =========================================================
-def behavior_analysis(history):
+def extract_behavior_patterns(history):
     if history.empty:
-        return "No behavior data yet."
+        return {"accept_rate": 0, "top_foods": []}
 
-    accepted = history[history["decision"] == "accepted"]
-    rejected = history[history["decision"] == "rejected"]
+    accept_rate = len(history[history["decision"]=="accepted"]) / len(history)
+    food_counts = history["food_name"].value_counts().to_dict()
 
-    return (
-        f"You have accepted {len(accepted)} foods and rejected {len(rejected)} foods. "
-        f"This shows your current eating pattern and preferences."
-    )
+    return {
+        "accept_rate": round(accept_rate, 2),
+        "top_foods": list(food_counts.keys())[:3]
+    }
+
+def behavior_stage(patterns):
+    if patterns["accept_rate"] < 0.3:
+        return "resistant"
+    elif patterns["accept_rate"] < 0.6:
+        return "transitional"
+    else:
+        return "optimized"
+
+ADJACENT_FOODS = {
+    "Chicken Breast": ["Salmon"],
+    "Brown Rice": ["Oats"],
+    "Yogurt": ["Blueberries"],
+    "Oats": ["Lentils"],
+}
+
+def gradual_recommendation(patterns):
+    stage = behavior_stage(patterns)
+
+    if not patterns["top_foods"]:
+        return ["Eggs", "Yogurt"]
+
+    base = patterns["top_foods"][0]
+
+    if stage == "resistant":
+        return ADJACENT_FOODS.get(base, [base])
+
+    elif stage == "transitional":
+        return list(set(ADJACENT_FOODS.get(base, []) + ["Spinach","Avocado"]))
+
+    else:
+        return ["Salmon","Spinach","Blueberries"]
+
+def explain_behavior(stage):
+    if stage == "resistant":
+        return "We are making small, easy improvements based on your current habits."
+    elif stage == "transitional":
+        return "You are improving. We are introducing better foods gradually."
+    else:
+        return "Your habits are strong. Now optimizing for long-term health."
 
 # =========================================================
 # DATA FUNCTIONS
 # =========================================================
 def create_user(w, h, goal):
     user_id = len(st.session_state["users"]) + 1
-    wearable_df = WearableEngine.simulate(user_id)
-    metrics = WearableEngine.aggregate(wearable_df)
+    df = WearableEngine.simulate(user_id)
+    m = WearableEngine.aggregate(df)
 
     user = {
         "id": user_id,
         "weight_kg": w,
         "height_m": h,
-        "bmi": calculate_bmi(w, h),
-        "sleep_hours": metrics["avg_sleep"],
-        "hrv": metrics["avg_hrv"],
-        "recovery": metrics["avg_recovery"],
-        "strain": metrics["avg_strain"],
+        "bmi": calculate_bmi(w,h),
+        "sleep_hours": m["avg_sleep"],
+        "hrv": m["avg_hrv"],
+        "recovery": m["avg_recovery"],
+        "strain": m["avg_strain"],
         "goal": goal
     }
 
@@ -217,6 +245,7 @@ page = st.sidebar.radio("Navigation", [
     "Wearable Data",
     "Food Deep Dive",
     "Health Insights",
+    "Behavior Engine",
     "Decision Engine",
     "Habit Tracker"
 ])
@@ -228,14 +257,13 @@ if page == "Create User":
     goal = st.selectbox("Goal", ["fitness","fat_loss","glucose_control"])
 
     if st.button("Save"):
-        create_user(w, h, goal)
+        create_user(w,h,goal)
         st.success("User created")
 
 # WEARABLE
 elif page == "Wearable Data":
     users = load_users()
     if users.empty:
-        st.warning("Create user first")
         st.stop()
 
     user_id = st.selectbox("User", users["id"])
@@ -253,7 +281,7 @@ elif page == "Food Deep Dive":
     for line in explain_supply_chain(df):
         st.write(line)
 
-# HEALTH INSIGHTS
+# HEALTH
 elif page == "Health Insights":
     users = load_users()
     if users.empty:
@@ -262,18 +290,34 @@ elif page == "Health Insights":
     user_id = st.selectbox("User", users["id"])
     user = users[users["id"] == user_id].iloc[0]
 
+    for msg in interpret_health(user):
+        st.write("•", msg)
+
+    for r in disease_risk(user):
+        st.write("⚠️", r)
+
+# BEHAVIOR ENGINE
+elif page == "Behavior Engine":
+    users = load_users()
+    if users.empty:
+        st.stop()
+
+    user_id = st.selectbox("User", users["id"])
     history = load_history(user_id)
 
-    st.subheader("🧠 Body Insights")
-    for msg in interpret_health(user):
-        st.write(f"• {msg}")
+    patterns = extract_behavior_patterns(history)
+    stage = behavior_stage(patterns)
 
-    st.subheader("⚠️ Risks")
-    for r in disease_risk(user):
-        st.write(f"• {r}")
+    st.subheader("Behavior Stage")
+    st.write(stage.upper())
 
-    st.subheader("📊 Behavior Pattern")
-    st.write(behavior_analysis(history))
+    st.write(explain_behavior(stage))
+
+    recs = gradual_recommendation(patterns)
+
+    st.subheader("Next Best Foods")
+    for r in recs:
+        st.write("→", r)
 
 # DECISION
 elif page == "Decision Engine":
