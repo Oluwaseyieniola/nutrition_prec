@@ -15,16 +15,16 @@ FOODS = [
 ]
 
 FOOD_FEATURES = {
-    "Salmon": ["protein","fat"],
-    "Oats": ["carb","fiber"],
-    "Blueberries": ["antioxidant"],
-    "Lentils": ["protein","fiber"],
-    "Spinach": ["micronutrient"],
-    "Chicken Breast": ["protein"],
-    "Avocado": ["fat"],
-    "Eggs": ["protein","fat"],
-    "Brown Rice": ["carb"],
-    "Yogurt": ["protein","probiotic"]
+    "Salmon": [25, 0, 13, 2, 15],
+    "Oats": [13, 1, 7, 2, 3],
+    "Blueberries": [1, 10, 0, 1, 6],
+    "Lentils": [9, 2, 0.5, 1, 2],
+    "Spinach": [3, 1, 0, 1, 4],
+    "Chicken Breast": [31, 0, 3, 2, 10],
+    "Avocado": [2, 1, 15, 1, 5],
+    "Eggs": [13, 1, 10, 1, 4],
+    "Brown Rice": [3, 1, 1, 2, 3],
+    "Yogurt": [10, 5, 4, 3, 5]
 }
 
 PRICE_MAP = {
@@ -35,7 +35,7 @@ PRICE_MAP = {
 }
 
 # =========================================================
-# SESSION
+# SESSION STATE
 # =========================================================
 if "users" not in st.session_state:
     st.session_state["users"] = []
@@ -44,148 +44,148 @@ if "history" not in st.session_state:
     st.session_state["history"] = []
 
 # =========================================================
-# WEARABLE ENGINE
+# ⌚ WEARABLE ENGINE
 # =========================================================
 class WearableEngine:
     @staticmethod
-    def simulate(user_id):
+    def simulate(user_id, days=7):
         np.random.seed(user_id)
+        data = []
+        for i in range(days):
+            data.append({
+                "date": datetime.date.today() - datetime.timedelta(days=i),
+                "hrv": np.random.randint(40, 100),
+                "resting_hr": np.random.randint(50, 75),
+                "sleep_hours": round(np.random.uniform(4.5, 8.5), 2),
+                "recovery": np.random.randint(30, 95),
+                "strain": round(np.random.uniform(5, 18), 1)
+            })
+        return pd.DataFrame(data)
+
+    @staticmethod
+    def aggregate(df):
         return {
-            "sleep": round(np.random.uniform(4.5, 8.5),2),
-            "hrv": np.random.randint(40,100),
-            "recovery": np.random.randint(30,95),
-            "strain": round(np.random.uniform(5,18),1)
+            "avg_hrv": int(df["hrv"].mean()),
+            "avg_sleep": round(df["sleep_hours"].mean(), 2),
+            "avg_strain": round(df["strain"].mean(), 1),
+            "avg_recovery": int(df["recovery"].mean())
         }
 
 # =========================================================
-# HEALTH + LIFESTYLE
+# HEALTH
 # =========================================================
-def calculate_bmi(w,h):
-    return round(w/(h**2),1)
-
-def lifestyle_score(user):
-    score = 0
-
-    if user["sleep"] >= 7:
-        score += 1
-    if user["activity"] == "high":
-        score += 1
-    if user["stress"] == "low":
-        score += 1
-
-    return score
+def calculate_bmi(w, h):
+    return round(w / (h**2), 1)
 
 # =========================================================
 # SUPPLY CHAIN
 # =========================================================
 def simulate_supply(food):
-    seed = int(hashlib.md5(food.encode()).hexdigest(),16)%10**6
+    seed = int(hashlib.md5(food.encode()).hexdigest(), 16) % 10**6
     np.random.seed(seed)
 
-    data=[]
-    for stage in ["Farm","Transport","Retail"]:
-        loss = np.random.uniform(0.7,1.0)
+    nutrients = {
+        "Vitamin C": np.random.uniform(40, 100),
+        "Protein": np.random.uniform(5, 30),
+        "Polyphenols": np.random.uniform(50, 120)
+    }
+
+    data = []
+    for stage in ["Farm","Harvest","Storage","Transport","Retail"]:
+        temp = np.random.uniform(2, 35)
+        days = np.random.uniform(0.5, 5)
+
+        decay = np.exp(-0.05 * days * (temp / 25))
+        for k in nutrients:
+            nutrients[k] *= decay
+
         data.append({
-            "Stage":stage,
-            "Quality":round(loss,2)
+            "Stage": stage,
+            **{k: round(v,1) for k,v in nutrients.items()}
         })
 
     return pd.DataFrame(data)
 
-def explain_supply(df):
-    msgs=[]
-    for _,r in df.iterrows():
-        if r["Quality"]<0.8:
-            state="lost a noticeable amount of nutrients"
+# =========================================================
+# EXPLANATION ENGINE
+# =========================================================
+def explain_supply_chain(df):
+    explanations = []
+    for _, row in df.iterrows():
+        if row["Vitamin C"] < 30:
+            state = "significant nutrient loss"
+        elif row["Vitamin C"] < 60:
+            state = "moderate nutrient reduction"
         else:
-            state="remained mostly fresh"
+            state = "nutrients well preserved"
 
-        msgs.append(f"At the {r['Stage']} stage, the food {state}.")
-    return msgs
+        explanations.append(
+            f"At the {row['Stage']} stage, the food experienced {state}. "
+            f"Vitamin C is around {row['Vitamin C']} and protein is about {row['Protein']}."
+        )
+    return explanations
 
-# =========================================================
-# BEHAVIOR ENGINE
-# =========================================================
-def behavior_pattern(user_id):
-    df = pd.DataFrame(st.session_state["history"])
-    if df.empty:
-        return {}
-
-    df = df[df["user_id"]==user_id]
-
-    pattern={}
-    for _,r in df.iterrows():
-        f = r["food"]
-        if f not in pattern:
-            pattern[f]=0
-
-        if r["decision"]=="accepted":
-            pattern[f]+=1
-        else:
-            pattern[f]-=1
-
-    return pattern
-
-# =========================================================
-# MEAL ENGINE
-# =========================================================
-def recommend_meal(user, pattern):
-    meal = []
-
-    needed = ["protein","carb","fat","fiber"]
-
-    for nutrient in needed:
-        for food,features in FOOD_FEATURES.items():
-            if nutrient in features:
-                if pattern.get(food,0)>=0:
-                    meal.append(food)
-                    break
-
-    return list(set(meal))
-
-def explain_meal(meal):
-    explanation = "This meal is designed to support your body by combining "
-
-    for food in meal:
-        explanation += f"{food}, "
-
-    explanation += "which together provide balanced nutrition for energy, recovery, and long-term health."
-
-    return explanation
-
-# =========================================================
-# HEALTH INTERPRETATION
-# =========================================================
 def interpret_health(user):
-    msgs=[]
+    messages = []
+    if user["sleep_hours"] < 6:
+        messages.append("Your sleep is low. This can lead to fatigue and weaker immunity over time.")
+    if user["recovery"] < 50:
+        messages.append("Your recovery is low. Your body may be under stress and not fully repaired.")
+    if user["bmi"] > 27:
+        messages.append("Your BMI suggests increased long-term metabolic risk.")
+    return messages
 
-    if user["sleep"]<6:
-        msgs.append("Your sleep is low, which may lead to fatigue and weaker immunity over time.")
+def disease_risk(user):
+    risks = []
+    if user["sleep_hours"] < 6:
+        risks.append("Risk of fatigue, weakened immunity, and metabolic imbalance")
+    if user["bmi"] > 28:
+        risks.append("Risk of type 2 diabetes and heart disease")
+    if user["strain"] > 15:
+        risks.append("Risk of chronic stress and inflammation")
+    return risks
 
-    if user["recovery"]<50:
-        msgs.append("Your body is under stress and may not recover properly.")
-
-    if user["bmi"]>27:
-        msgs.append("Your BMI suggests a higher risk of metabolic diseases.")
-
-    return msgs
+def explain_food_impact(food):
+    mapping = {
+        "Salmon": "Supports heart health and reduces inflammation.",
+        "Oats": "Helps control blood sugar and supports digestion.",
+        "Blueberries": "Improves brain health and slows aging.",
+    }
+    return mapping.get(food, "Supports overall body balance and health.")
 
 # =========================================================
-# USER DATA
+# BEHAVIOR TRACKING
 # =========================================================
-def create_user(w,h,goal,activity,stress):
-    user_id=len(st.session_state["users"])+1
-    wearable = WearableEngine.simulate(user_id)
+def behavior_analysis(history):
+    if history.empty:
+        return "No behavior data yet."
 
-    user={
-        "id":user_id,
-        "weight":w,
-        "height":h,
-        "bmi":calculate_bmi(w,h),
-        "goal":goal,
-        "activity":activity,
-        "stress":stress,
-        **wearable
+    accepted = history[history["decision"] == "accepted"]
+    rejected = history[history["decision"] == "rejected"]
+
+    return (
+        f"You have accepted {len(accepted)} foods and rejected {len(rejected)} foods. "
+        f"This shows your current eating pattern and preferences."
+    )
+
+# =========================================================
+# DATA FUNCTIONS
+# =========================================================
+def create_user(w, h, goal):
+    user_id = len(st.session_state["users"]) + 1
+    wearable_df = WearableEngine.simulate(user_id)
+    metrics = WearableEngine.aggregate(wearable_df)
+
+    user = {
+        "id": user_id,
+        "weight_kg": w,
+        "height_m": h,
+        "bmi": calculate_bmi(w, h),
+        "sleep_hours": metrics["avg_sleep"],
+        "hrv": metrics["avg_hrv"],
+        "recovery": metrics["avg_recovery"],
+        "strain": metrics["avg_strain"],
+        "goal": goal
     }
 
     st.session_state["users"].append(user)
@@ -193,98 +193,111 @@ def create_user(w,h,goal,activity,stress):
 def load_users():
     return pd.DataFrame(st.session_state["users"])
 
-def save_decision(user_id,food,decision):
+def save_decision(user_id, food, decision):
     st.session_state["history"].append({
-        "user_id":user_id,
-        "food":food,
-        "decision":decision,
-        "time":datetime.datetime.now()
+        "user_id": user_id,
+        "food_name": food,
+        "decision": decision,
+        "created_at": datetime.datetime.now()
     })
+
+def load_history(user_id):
+    df = pd.DataFrame(st.session_state["history"])
+    if df.empty:
+        return df
+    return df[df["user_id"] == user_id]
 
 # =========================================================
 # UI
 # =========================================================
 st.title("🥗 Food Intelligence System")
 
-page = st.sidebar.radio("Navigation",[
+page = st.sidebar.radio("Navigation", [
     "Create User",
+    "Wearable Data",
+    "Food Deep Dive",
     "Health Insights",
     "Decision Engine",
     "Habit Tracker"
 ])
 
-# =========================================================
 # CREATE USER
-# =========================================================
-if page=="Create User":
-    w=st.number_input("Weight",40.0,150.0,75.0)
-    h=st.number_input("Height",1.4,2.2,1.75)
-    goal=st.selectbox("Goal",["fitness","fat_loss","glucose_control"])
-    activity=st.selectbox("Activity",["low","moderate","high"])
-    stress=st.selectbox("Stress",["low","medium","high"])
+if page == "Create User":
+    w = st.number_input("Weight (kg)", 40.0, 150.0, 75.0)
+    h = st.number_input("Height (m)", 1.4, 2.2, 1.75)
+    goal = st.selectbox("Goal", ["fitness","fat_loss","glucose_control"])
 
-    if st.button("Create"):
-        create_user(w,h,goal,activity,stress)
+    if st.button("Save"):
+        create_user(w, h, goal)
         st.success("User created")
 
-# =========================================================
-# HEALTH INSIGHTS (MAIN FEATURE)
-# =========================================================
-elif page=="Health Insights":
-    users=load_users()
+# WEARABLE
+elif page == "Wearable Data":
+    users = load_users()
     if users.empty:
         st.warning("Create user first")
         st.stop()
 
-    user_id=st.selectbox("User",users["id"])
-    user=users[users["id"]==user_id].iloc[0]
+    user_id = st.selectbox("User", users["id"])
+    df = WearableEngine.simulate(user_id)
 
-    food=st.selectbox("Food",FOODS)
+    st.dataframe(df)
+    st.line_chart(df.set_index("date")[["hrv","sleep_hours","strain"]])
 
-    st.subheader("🌍 Food Journey")
-    df=simulate_supply(food)
-    for msg in explain_supply(df):
-        st.write(msg)
+# FOOD
+elif page == "Food Deep Dive":
+    food = st.selectbox("Food", FOODS)
+    df = simulate_supply(food)
 
-    st.subheader("🧠 Your Health")
+    st.dataframe(df)
+    for line in explain_supply_chain(df):
+        st.write(line)
+
+# HEALTH INSIGHTS
+elif page == "Health Insights":
+    users = load_users()
+    if users.empty:
+        st.stop()
+
+    user_id = st.selectbox("User", users["id"])
+    user = users[users["id"] == user_id].iloc[0]
+
+    history = load_history(user_id)
+
+    st.subheader("🧠 Body Insights")
     for msg in interpret_health(user):
-        st.write(f"- {msg}")
+        st.write(f"• {msg}")
 
-    st.subheader("🧠 Behavior Pattern")
-    pattern=behavior_pattern(user_id)
-    st.json(pattern)
+    st.subheader("⚠️ Risks")
+    for r in disease_risk(user):
+        st.write(f"• {r}")
 
-    st.subheader("🥗 Recommended Meal")
-    meal=recommend_meal(user,pattern)
-    st.write(meal)
-    st.write(explain_meal(meal))
+    st.subheader("📊 Behavior Pattern")
+    st.write(behavior_analysis(history))
 
-# =========================================================
-# DECISION ENGINE
-# =========================================================
-elif page=="Decision Engine":
-    users=load_users()
+# DECISION
+elif page == "Decision Engine":
+    users = load_users()
     if users.empty:
-        st.warning("Create user first")
         st.stop()
 
-    user_id=st.selectbox("User",users["id"])
-    food=st.selectbox("Food",FOODS)
+    user_id = st.selectbox("User", users["id"])
+    food = st.selectbox("Food", FOODS)
 
     if st.button("Accept"):
-        save_decision(user_id,food,"accepted")
-        st.success("Saved")
+        save_decision(user_id, food, "accepted")
 
     if st.button("Reject"):
-        save_decision(user_id,food,"rejected")
-        st.warning("Saved")
+        save_decision(user_id, food, "rejected")
 
-# =========================================================
 # HABIT TRACKER
-# =========================================================
-elif page=="Habit Tracker":
-    df=pd.DataFrame(st.session_state["history"])
-    if not df.empty:
-        st.dataframe(df)
-    else:
-        st.write("No data yet")
+elif page == "Habit Tracker":
+    users = load_users()
+    if users.empty:
+        st.stop()
+
+    user_id = st.selectbox("User", users["id"])
+    history = load_history(user_id)
+
+    if not history.empty:
+        st.dataframe(history)
