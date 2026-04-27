@@ -15,18 +15,31 @@ def init_state():
 init_state()
 
 # =========================================================
+# IMAGE MAP (NEW – adds visuals to your foods)
+# =========================================================
+FOOD_IMAGES = {
+    "Salmon": "[images.unsplash.com](https://images.unsplash.com/photo-1599084993091-1cb5c0721cc6)",
+    "Oats": "[images.unsplash.com](https://images.unsplash.com/photo-1517673400267-0251440c45dc)",
+    "Eggs": "[images.unsplash.com](https://images.unsplash.com/photo-1506976785307-8732e854ad03)",
+    "Spinach": "[images.unsplash.com](https://images.unsplash.com/photo-1576045057995-568f588f82fb)",
+    "Chicken Breast": "[images.unsplash.com](https://images.unsplash.com/photo-1604503468506-a8da13d82791)",
+    "Avocado": "[images.unsplash.com](https://images.unsplash.com/photo-1523049673857-eb18f1d7b578)",
+    "Blueberries": "[images.unsplash.com](https://images.unsplash.com/photo-1498557850523-fd3d118b962e)"
+}
+
+# =========================================================
 # DOMAIN
 # =========================================================
 FOODS = ["Salmon","Oats","Eggs","Spinach","Chicken Breast","Avocado","Blueberries"]
 
 FOOD_LIBRARY = {
-    "Salmon": {"good_for": ["fitness","glucose_control"], "protein": 25},
-    "Oats": {"good_for": ["glucose_control"], "fiber": 8},
-    "Eggs": {"good_for": ["fitness"], "protein": 12},
-    "Spinach": {"good_for": ["glucose_control"], "fiber": 4},
-    "Chicken Breast": {"good_for": ["fitness","fat_loss"], "protein": 30},
-    "Avocado": {"good_for": ["fat_loss"], "fiber": 6},
-    "Blueberries": {"good_for": ["glucose_control"], "fiber": 5},
+    "Salmon": {"good_for": ["fitness","glucose_control"], "protein": 25, "long_term": "Improves inflammation & muscle recovery."},
+    "Oats": {"good_for": ["glucose_control"], "fiber": 8, "long_term": "Lowers glucose spikes & improves gut health."},
+    "Eggs": {"good_for": ["fitness"], "protein": 12, "long_term": "Provides complete proteins & supports muscle repair."},
+    "Spinach": {"good_for": ["glucose_control"], "fiber": 4, "long_term": "Strong in magnesium; supports glucose & metabolism."},
+    "Chicken Breast": {"good_for": ["fitness","fat_loss"], "protein": 30, "long_term": "High satiety protein; supports lean muscle."},
+    "Avocado": {"good_for": ["fat_loss"], "fiber": 6, "long_term": "Healthy fats help stabilize appetite & hormones."},
+    "Blueberries": {"good_for": ["glucose_control"], "fiber": 5, "long_term": "Antioxidants support vascular & brain health."},
 }
 
 # =========================================================
@@ -161,9 +174,9 @@ def create_user(weight, height, goal):
     st.session_state[f"wearable_{user_id}"] = wearable
 
 # =========================================================
-# UI
+# PAGE UI
 # =========================================================
-st.title("Food Intelligence System (Refactored)")
+st.title("🥗 Food Intelligence System (Visual Upgrade)")
 
 page = st.sidebar.radio("Navigation", [
     "Create User",
@@ -171,60 +184,74 @@ page = st.sidebar.radio("Navigation", [
     "Recommendations"
 ])
 
-# --- CREATE USER ---
+# =========================================================
+# PAGE 1 — CREATE USER
+# =========================================================
 if page == "Create User":
-    w = st.number_input("Weight", 40.0, 150.0, 75.0)
-    h = st.number_input("Height", 1.4, 2.2, 1.75)
+    w = st.number_input("Weight (kg)", 40.0, 150.0, 75.0)
+    h = st.number_input("Height (m)", 1.4, 2.2, 1.75)
     goal = st.selectbox("Goal", ["fitness","fat_loss","glucose_control"])
 
-    if st.button("Create"):
+    if st.button("Create User"):
         create_user(w, h, goal)
-        st.success("User created")
+        st.success("User created successfully.")
 
-# --- VIEW HEALTH ---
+# =========================================================
+# PAGE 2 — VIEW HEALTH
+# =========================================================
 elif page == "View Health":
     users = pd.DataFrame(st.session_state["users"])
 
     if users.empty:
-        st.info("No users yet")
+        st.info("No users yet.")
         st.stop()
 
-    user_id = st.selectbox("User", users["id"])
+    user_id = st.selectbox("Select User", users["id"])
+    user = safe_get_user(users, user_id)
 
-    try:
-        user = safe_get_user(users, user_id)
-    except Exception as e:
-        st.error(str(e))
-        st.stop()
-
-    st.write("### Health Overview")
-    st.write(user)
+    st.subheader("🏥 Health Overview")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("BMI", user["bmi"])
+    c2.metric("Sleep (hrs)", round(user["sleep"],2))
+    c3.metric("Steps/day", user["steps"])
 
     risk = metabolic_score(user)
-    st.write(f"Metabolic Risk: **{risk.upper()}**")
+    st.write(f"**Metabolic Risk:** :red[{risk.upper()}]")
 
-# --- RECOMMENDATIONS ---
+# =========================================================
+# PAGE 3 — RECOMMENDATIONS (enhanced visuals)
+# =========================================================
 elif page == "Recommendations":
     users = pd.DataFrame(st.session_state["users"])
-
     if users.empty:
         st.info("No users yet")
         st.stop()
 
-    user_id = st.selectbox("User", users["id"])
+    user_id = st.selectbox("Select User", users["id"])
+    user = safe_get_user(users, user_id)
 
-    try:
-        user = safe_get_user(users, user_id)
-    except Exception as e:
-        st.error(str(e))
-        st.stop()
-
-    st.write("### Recommendations")
+    st.subheader("🍽 Personalized Food Recommendations")
 
     recs = generate_recommendations(user)
 
     for _, row in recs.iterrows():
+        food = row['food']
+        img = FOOD_IMAGES.get(food, None)
+        info = FOOD_LIBRARY.get(food, {})
+
         with st.container(border=True):
-            st.markdown(f"### {row['food']}")
-            st.write(f"Score: {row['score']}")
-            st.write(f"Protein: {row['protein']} | Fiber: {row['fiber']}")
+            cols = st.columns([1, 2])
+
+            with cols[0]:
+                if img:
+                    st.image(img, use_container_width=True)
+
+            with cols[1]:
+                st.markdown(f"### {food}")
+                st.write(f"**Score:** {row['score']}")
+                st.write(f"**Protein:** {row['protein']} g")
+                st.write(f"**Fiber:** {row['fiber']} g")
+                st.write(f"**Good for:** {', '.join(info.get('good_for', []))}")
+                st.write(f"**Long-term effect:** {info.get('long_term','')}")
+
+            st.markdown("---")
