@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import datetime
 
-st.set_page_config(layout="wide")
+st.set_page_config(page_title="Food Intelligence System", layout="wide")
 
 # =========================================================
 # INIT STATE
@@ -20,7 +20,7 @@ init()
 FOODS=["Salmon","Oats","Eggs","Spinach","Chicken Breast","Avocado","Blueberries"]
 
 FOOD_LIBRARY={
-    "Salmon":{"goal":["fitness","glucose_control"],"desc":"Omega-3 recovery food"},
+    "Salmon":{"goal":["fitness","glucose_control"],"desc":"Omega-3 recovery"},
     "Oats":{"goal":["glucose_control"],"desc":"Stable energy carbs"},
     "Eggs":{"goal":["fitness"],"desc":"Complete protein"},
     "Spinach":{"goal":["glucose_control"],"desc":"Micronutrient dense"},
@@ -65,14 +65,10 @@ def create_user(w,h,goal):
 # =========================================================
 def wearable(uid):
     rng=np.random.default_rng(uid)
-    sleep=rng.uniform(5,8)
-    strain=rng.uniform(5,18)
-    recovery=rng.uniform(30,95)
-
     return {
-        "sleep":round(sleep,2),
-        "strain":round(strain,1),
-        "recovery":int(recovery)
+        "sleep":round(rng.uniform(5,8),2),
+        "strain":round(rng.uniform(5,18),1),
+        "recovery":int(rng.uniform(30,95))
     }
 
 # =========================================================
@@ -80,25 +76,25 @@ def wearable(uid):
 # =========================================================
 def health_score(user,wear):
     score=0
-    explain=[]
+    reasons=[]
 
     if user["bmi"]>27:
         score+=2
-        explain.append("High BMI")
+        reasons.append("High BMI")
 
     if wear["sleep"]<6:
         score+=2
-        explain.append("Poor sleep")
+        reasons.append("Low sleep")
 
     if wear["recovery"]<50:
         score+=2
-        explain.append("Low recovery")
+        reasons.append("Low recovery")
 
     risk="LOW"
     if score>=4: risk="HIGH"
     elif score>=2: risk="MODERATE"
 
-    return risk, explain
+    return risk,reasons
 
 # =========================================================
 # BEHAVIOR ENGINE
@@ -135,9 +131,40 @@ def supply_score(s):
     return (s["fresh"]*40)+((1-s["risk"])*30)+((1-s["proc"])*30)
 
 # =========================================================
+# FOOD CHAIN SIMULATION (NEW)
+# =========================================================
+def simulate_food_chain(food):
+    base = SUPPLY.get(food, {})
+
+    stages = [
+        {"stage":"Farm","time":"Day 0","temp":5,"event":"Harvest","quality":100},
+        {"stage":"Processing","time":"Day 1","temp":8,"event":"Packaging","quality":95-base.get("proc",0)*20},
+        {"stage":"Transport","time":"Day 2-4","temp":np.random.choice([4,10,15]),
+         "event":np.random.choice(["Smooth","Delay","Temp fluctuation"]), "quality":85},
+        {"stage":"Retail","time":"Day 5-7","temp":np.random.choice([4,12]),
+         "event":np.random.choice(["Optimal","Overstock","Cold chain break"]), "quality":75},
+        {"stage":"Consumer","time":"Day 8","temp":22,"event":"Consumption","quality":70}
+    ]
+
+    quality=100
+    timeline=[]
+
+    for s in stages:
+        penalty=0
+        if s["temp"]>10: penalty+=5
+        if "Delay" in s["event"]: penalty+=5
+        if "Cold" in s["event"]: penalty+=10
+
+        quality-=penalty
+        s["final"]=max(quality,0)
+        timeline.append(s)
+
+    return timeline,quality
+
+# =========================================================
 # RECOMMENDER
 # =========================================================
-def score(food,user,pref,wear):
+def score(food,user,p,wear):
     base=50
     n=NUTRITION[food]
     s=SUPPLY[food]
@@ -151,12 +178,11 @@ def score(food,user,pref,wear):
     if user["goal"]=="fat_loss":
         base-=n["cal"]*0.05
 
-    if food in pref:
-        base+=(pref[food]-0.5)*40
+    if food in p:
+        base+=(p[food]-0.5)*40
 
     base+=(supply_score(s)-50)*0.5
 
-    # wearable adjustment
     if wear["recovery"]<50:
         base+=5
 
@@ -185,7 +211,8 @@ page=st.sidebar.radio("Pages",[
     "Create User",
     "Health Insights",
     "Recommendations",
-    "Habit Tracker"
+    "Habit Tracker",
+    "Food Chain Monitoring"
 ])
 
 # ---------------- CREATE USER ----------------
@@ -196,7 +223,7 @@ if page=="Create User":
 
     if st.button("Create"):
         create_user(w,h,goal)
-        st.success("Created")
+        st.success("User created")
 
 # ---------------- HEALTH ----------------
 elif page=="Health Insights":
@@ -207,14 +234,14 @@ elif page=="Health Insights":
     user=users[users.id==uid].iloc[0].to_dict()
 
     wear=wearable(uid)
-    risk,exp=health_score(user,wear)
+    risk,reasons=health_score(user,wear)
 
     st.metric("BMI",user["bmi"])
     st.metric("Recovery",wear["recovery"])
     st.metric("Sleep",wear["sleep"])
 
     st.write("Risk:",risk)
-    st.write("Why:",exp)
+    st.write("Reasons:",reasons)
 
 # ---------------- RECOMMEND ----------------
 elif page=="Recommendations":
@@ -226,7 +253,7 @@ elif page=="Recommendations":
 
     recs,wear=recommend(user,uid)
 
-    st.subheader("WHOOP-style Recovery")
+    st.subheader("WHOOP Recovery")
     st.write(wear)
 
     for _,r in recs.iterrows():
@@ -252,9 +279,20 @@ elif page=="Habit Tracker":
     if users.empty: st.stop()
 
     uid=st.selectbox("User",users.id)
+    st.metric("Healthy Actions",habit_score(uid))
 
-    st.metric("Total Healthy Actions",habit_score(uid))
+# ---------------- FOOD CHAIN ----------------
+elif page=="Food Chain Monitoring":
+    st.subheader("🚜 Farm → Fork Monitoring")
 
-    df=pd.DataFrame(st.session_state.habits)
-    if not df.empty:
-        st.write(df[df.user==uid])
+    food=st.selectbox("Food",FOODS)
+    timeline,final=simulate_food_chain(food)
+
+    for step in timeline:
+        with st.container(border=True):
+            st.write(step["stage"],"|",step["time"])
+            st.write("Temp:",step["temp"],"Event:",step["event"])
+            st.progress(step["final"]/100)
+            st.write("Quality:",step["final"])
+
+    st.metric("Final Quality",final)
