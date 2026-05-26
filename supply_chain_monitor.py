@@ -8,12 +8,12 @@ from dataclasses import dataclass
 # PAGE CONFIG
 # =========================================================
 st.set_page_config(
-    page_title="Precision Nutrition Intelligence System",
+    page_title="Precision Nutrition Intelligence",
     layout="wide"
 )
 
 # =========================================================
-# INIT SESSION
+# SESSION INIT
 # =========================================================
 def init():
     keys = ["users", "history", "habits"]
@@ -38,50 +38,68 @@ FOODS = [
 ]
 
 # =========================================================
-# FOOD LIBRARY
+# FOOD KNOWLEDGE
 # =========================================================
 FOOD_LIBRARY = {
 
     "Salmon": {
         "goal": ["fitness", "glucose_control"],
-        "effects": ["recovery", "anti_inflammation"],
-        "desc": "Omega-3 recovery support"
+        "category": [
+            "RECOVERY_SUPPORT",
+            "ANTI_INFLAMMATORY"
+        ],
+        "desc": "Omega-3 rich recovery food"
     },
 
     "Oats": {
         "goal": ["glucose_control"],
-        "effects": ["stable_glucose"],
-        "desc": "Slow digesting carbohydrates"
+        "category": [
+            "GLUCOSE_STABILIZING",
+            "MICROBIOME_SUPPORT"
+        ],
+        "desc": "Stable energy carbohydrates"
     },
 
     "Eggs": {
         "goal": ["fitness"],
-        "effects": ["muscle_repair"],
-        "desc": "Complete protein"
+        "category": [
+            "RECOVERY_SUPPORT"
+        ],
+        "desc": "Complete protein source"
     },
 
     "Spinach": {
         "goal": ["glucose_control"],
-        "effects": ["micronutrients"],
-        "desc": "Magnesium + Iron"
+        "category": [
+            "MICROBIOME_SUPPORT",
+            "ANTI_INFLAMMATORY"
+        ],
+        "desc": "Micronutrient dense greens"
     },
 
     "Chicken Breast": {
         "goal": ["fitness", "fat_loss"],
-        "effects": ["lean_mass"],
-        "desc": "Lean protein"
+        "category": [
+            "RECOVERY_SUPPORT"
+        ],
+        "desc": "Lean protein support"
     },
 
     "Avocado": {
         "goal": ["fat_loss"],
-        "effects": ["healthy_fats"],
-        "desc": "Healthy fat profile"
+        "category": [
+            "ANTI_INFLAMMATORY"
+        ],
+        "desc": "Healthy fats"
     },
 
     "Blueberries": {
         "goal": ["glucose_control"],
-        "effects": ["antioxidants"],
-        "desc": "Polyphenol support"
+        "category": [
+            "COGNITIVE_SUPPORT",
+            "ANTI_INFLAMMATORY"
+        ],
+        "desc": "Antioxidant support"
     }
 }
 
@@ -92,127 +110,241 @@ BASE_NUTRITION = {
 
     "Salmon": {
         "protein": 25,
-        "fiber": 0,
-        "cal": 208,
         "omega3": 100,
-        "micronutrients": 80
+        "vitamin_d": 90,
+        "selenium": 75,
+        "b12": 85,
+        "cal": 208
     },
 
     "Oats": {
+        "fiber": 85,
         "protein": 17,
-        "fiber": 10,
-        "cal": 389,
-        "micronutrients": 70
+        "magnesium": 70,
+        "beta_glucan": 95,
+        "polyphenols": 55,
+        "cal": 389
     },
 
     "Eggs": {
         "protein": 12,
-        "fiber": 0,
-        "cal": 155,
-        "micronutrients": 75
+        "b12": 70,
+        "choline": 88,
+        "selenium": 60,
+        "vitamin_d": 50,
+        "cal": 155
     },
 
     "Spinach": {
-        "protein": 3,
-        "fiber": 2,
-        "cal": 23,
-        "micronutrients": 100
+        "magnesium": 95,
+        "iron": 90,
+        "folate": 88,
+        "fiber": 70,
+        "vitamin_k": 100,
+        "cal": 23
     },
 
     "Chicken Breast": {
         "protein": 31,
-        "fiber": 0,
-        "cal": 165,
-        "micronutrients": 65
+        "selenium": 55,
+        "b6": 60,
+        "niacin": 70,
+        "cal": 165
     },
 
     "Avocado": {
-        "protein": 2,
-        "fiber": 7,
-        "cal": 160,
-        "micronutrients": 60
+        "healthy_fats": 90,
+        "fiber": 65,
+        "potassium": 80,
+        "folate": 50,
+        "cal": 160
     },
 
     "Blueberries": {
-        "protein": 1,
-        "fiber": 2,
-        "cal": 57,
-        "micronutrients": 95
+        "polyphenols": 100,
+        "vitamin_c": 80,
+        "fiber": 45,
+        "antioxidants": 100,
+        "cal": 57
     }
 }
 
 # =========================================================
-# SUPPLY TELEMETRY
+# NUTRIENT SENSITIVITY
+# =========================================================
+NUTRIENT_SENSITIVITY = {
+
+    "vitamin_c": 1.8,
+
+    "polyphenols": 1.6,
+
+    "omega3": 1.5,
+
+    "vitamin_d": 1.3,
+
+    "antioxidants": 1.6,
+
+    "healthy_fats": 1.2,
+
+    "magnesium": 0.5,
+
+    "protein": 0.3,
+
+    "fiber": 0.4
+}
+
+# =========================================================
+# NUTRIENT BIOLOGICAL EFFECTS
+# =========================================================
+NUTRIENT_EFFECTS = {
+
+    "omega3": [
+        "Improves recovery",
+        "Reduces inflammation",
+        "Supports cardiovascular health"
+    ],
+
+    "protein": [
+        "Supports muscle repair",
+        "Improves satiety"
+    ],
+
+    "fiber": [
+        "Stabilizes glucose",
+        "Supports gut microbiome"
+    ],
+
+    "polyphenols": [
+        "Reduces oxidative stress",
+        "Supports metabolic health"
+    ],
+
+    "magnesium": [
+        "Supports sleep quality",
+        "Improves muscle recovery"
+    ],
+
+    "vitamin_c": [
+        "Supports immunity",
+        "Reduces oxidative stress"
+    ],
+
+    "healthy_fats": [
+        "Supports hormone balance",
+        "Improves satiety"
+    ],
+
+    "antioxidants": [
+        "Protects cells from stress",
+        "Supports cognitive health"
+    ]
+}
+
+# =========================================================
+# SUPPLY TELEMETRY MODEL
 # =========================================================
 @dataclass
 class SupplyTelemetry:
 
     farm_id: str
+
     harvest_date: datetime.date
 
     soil_quality: float
+
     pesticide_score: float
 
     avg_transport_temp: float
+
     transport_delay_hours: int
 
     warehouse_days: int
+
     humidity_exposure: float
 
     processing_level: float
+
     contamination_risk: float
 
     cold_chain_breaks: int
 
 # =========================================================
-# MOCK REAL FARM TO PLATE DATA
-# (Supposing Kibsons or another provider supplies this)
+# MOCK REAL FARM-TO-PLATE DATA
 # =========================================================
 def fetch_supply_chain_data(food):
 
-    rng = np.random.default_rng(abs(hash(food)) % 1000)
+    rng = np.random.default_rng(
+        abs(hash(food)) % 10000
+    )
 
     return SupplyTelemetry(
 
         farm_id=f"FARM-{rng.integers(100,999)}",
 
         harvest_date=datetime.date.today() -
-        datetime.timedelta(days=int(rng.integers(1,10))),
+        datetime.timedelta(
+            days=int(rng.integers(1,10))
+        ),
 
-        soil_quality=round(rng.uniform(0.6, 1.0),2),
+        soil_quality=round(
+            rng.uniform(0.6,1.0),2
+        ),
 
-        pesticide_score=round(rng.uniform(0.0, 0.5),2),
+        pesticide_score=round(
+            rng.uniform(0.0,0.4),2
+        ),
 
-        avg_transport_temp=round(rng.uniform(2,15),1),
+        avg_transport_temp=round(
+            rng.uniform(2,15),1
+        ),
 
-        transport_delay_hours=int(rng.integers(0,20)),
+        transport_delay_hours=int(
+            rng.integers(0,20)
+        ),
 
-        warehouse_days=int(rng.integers(1,8)),
+        warehouse_days=int(
+            rng.integers(1,7)
+        ),
 
-        humidity_exposure=round(rng.uniform(0.2,0.9),2),
+        humidity_exposure=round(
+            rng.uniform(0.2,0.9),2
+        ),
 
-        processing_level=round(rng.uniform(0.0,0.6),2),
+        processing_level=round(
+            rng.uniform(0.0,0.6),2
+        ),
 
-        contamination_risk=round(rng.uniform(0.0,0.4),2),
+        contamination_risk=round(
+            rng.uniform(0.0,0.4),2
+        ),
 
-        cold_chain_breaks=int(rng.integers(0,3))
+        cold_chain_breaks=int(
+            rng.integers(0,3)
+        )
     )
 
 # =========================================================
-# USER CREATION
+# USER ENGINE
 # =========================================================
 def create_user(weight, height, goal):
 
     uid = len(st.session_state.users) + 1
 
-    bmi = round(weight / (height ** 2),1)
+    bmi = round(
+        weight / (height ** 2),
+        1
+    )
 
     st.session_state.users.append({
 
         "id": uid,
+
         "weight": weight,
+
         "height": height,
+
         "goal": goal,
+
         "bmi": bmi
     })
 
@@ -225,23 +357,34 @@ def wearable(uid):
 
     return {
 
-        "sleep": round(rng.uniform(5,8),2),
+        "sleep": round(
+            rng.uniform(5,8),2
+        ),
 
-        "recovery": int(rng.uniform(30,95)),
+        "recovery": int(
+            rng.uniform(30,95)
+        ),
 
-        "strain": round(rng.uniform(5,18),1),
+        "strain": round(
+            rng.uniform(5,18),1
+        ),
 
-        "glucose_variability": round(rng.uniform(10,40),1),
+        "glucose_variability": round(
+            rng.uniform(10,40),1
+        ),
 
-        "hrv": int(rng.uniform(20,90))
+        "hrv": int(
+            rng.uniform(20,90)
+        )
     }
 
 # =========================================================
-# HEALTH RISK ENGINE
+# HEALTH ENGINE
 # =========================================================
 def health_score(user, wear):
 
     score = 0
+
     reasons = []
 
     if user["bmi"] > 27:
@@ -250,15 +393,15 @@ def health_score(user, wear):
 
     if wear["sleep"] < 6:
         score += 2
-        reasons.append("Poor sleep")
+        reasons.append("Poor Sleep")
 
     if wear["recovery"] < 50:
         score += 2
-        reasons.append("Low recovery")
+        reasons.append("Low Recovery")
 
     if wear["glucose_variability"] > 30:
         score += 2
-        reasons.append("Glucose instability")
+        reasons.append("Glucose Instability")
 
     risk = "LOW"
 
@@ -271,71 +414,120 @@ def health_score(user, wear):
     return risk, reasons
 
 # =========================================================
-# NUTRIENT DECAY ENGINE
+# NUTRIENT RETENTION ENGINE
 # =========================================================
-def nutrient_decay_score(telemetry):
+def adjusted_nutrients(food, telemetry):
 
-    score = 100
+    base = BASE_NUTRITION[food]
 
-    # temperature degradation
-    if telemetry.avg_transport_temp > 10:
-        score -= 15
+    adjusted = {}
 
-    # transport delay
-    score -= telemetry.transport_delay_hours * 0.5
+    heat_factor = (
+        telemetry.avg_transport_temp / 10
+    )
 
-    # warehouse storage
-    score -= telemetry.warehouse_days * 1.5
+    delay_factor = (
+        telemetry.transport_delay_hours / 24
+    )
 
-    # processing degradation
-    score -= telemetry.processing_level * 20
+    processing_factor = (
+        telemetry.processing_level
+    )
 
-    # contamination
-    score -= telemetry.contamination_risk * 25
+    for nutrient, value in base.items():
 
-    # cold chain breaks
-    score -= telemetry.cold_chain_breaks * 10
+        sensitivity = NUTRIENT_SENSITIVITY.get(
+            nutrient,
+            1.0
+        )
 
-    return max(score, 10)
+        degradation = (
+
+            heat_factor * 0.2 * sensitivity
+
+            +
+
+            delay_factor * 0.15 * sensitivity
+
+            +
+
+            processing_factor * 0.25 * sensitivity
+
+        )
+
+        retention = max(
+            0.2,
+            1 - degradation
+        )
+
+        adjusted[nutrient] = {
+
+            "original": value,
+
+            "remaining": round(
+                value * retention,
+                1
+            ),
+
+            "retention_percent": round(
+                retention * 100,
+                1
+            )
+        }
+
+    return adjusted
 
 # =========================================================
 # FOOD INTEGRITY ENGINE
 # =========================================================
 def compute_integrity_score(telemetry):
 
-    freshness = nutrient_decay_score(telemetry)
+    score = 100
 
-    soil_bonus = telemetry.soil_quality * 15
+    if telemetry.avg_transport_temp > 10:
+        score -= 15
 
-    pesticide_penalty = telemetry.pesticide_score * 20
+    score -= (
+        telemetry.transport_delay_hours * 0.5
+    )
 
-    integrity = freshness + soil_bonus - pesticide_penalty
+    score -= (
+        telemetry.warehouse_days * 1.5
+    )
 
-    return round(max(min(integrity,100),0),1)
+    score -= (
+        telemetry.processing_level * 20
+    )
+
+    score -= (
+        telemetry.contamination_risk * 25
+    )
+
+    score -= (
+        telemetry.cold_chain_breaks * 10
+    )
+
+    score += (
+        telemetry.soil_quality * 10
+    )
+
+    score -= (
+        telemetry.pesticide_score * 15
+    )
+
+    return round(
+        max(min(score,100),0),
+        1
+    )
 
 # =========================================================
-# ADJUST NUTRIENTS
-# =========================================================
-def adjusted_nutrients(food, telemetry):
-
-    decay = nutrient_decay_score(telemetry) / 100
-
-    base = BASE_NUTRITION[food]
-
-    adjusted = {}
-
-    for k,v in base.items():
-
-        adjusted[k] = round(v * decay,2)
-
-    return adjusted
-
-# =========================================================
-# PREFERENCE ENGINE
+# USER PREFERENCE ENGINE
 # =========================================================
 def preferences(uid):
 
-    df = pd.DataFrame(st.session_state.history)
+    df = pd.DataFrame(
+        st.session_state.history
+    )
 
     if df.empty:
         return {}
@@ -349,27 +541,31 @@ def preferences(uid):
 
     for food, g in df.groupby("food"):
 
-        acceptance = len(g[g.decision == "yes"]) / len(g)
-
-        result[food] = acceptance
+        result[food] = len(
+            g[g.decision == "yes"]
+        ) / len(g)
 
     return result
 
 # =========================================================
-# HABITS
+# HABIT ENGINE
 # =========================================================
 def log_habit(uid, food):
 
     st.session_state.habits.append({
 
         "user": uid,
+
         "food": food,
+
         "date": datetime.date.today()
     })
 
 def habit_score(uid):
 
-    df = pd.DataFrame(st.session_state.habits)
+    df = pd.DataFrame(
+        st.session_state.habits
+    )
 
     if df.empty:
         return 0
@@ -377,32 +573,69 @@ def habit_score(uid):
     return len(df[df.user == uid])
 
 # =========================================================
-# CONFIDENCE ENGINE
+# BIOLOGICAL EXPLANATION ENGINE
 # =========================================================
-def confidence_score(telemetry, integrity):
+def explain_food(user, wear, nutrients):
 
-    confidence = 100
+    explanations = []
 
-    confidence -= telemetry.contamination_risk * 30
+    for nutrient, data in nutrients.items():
 
-    confidence -= telemetry.processing_level * 20
+        if data["retention_percent"] < 50:
+            continue
 
-    confidence += integrity * 0.1
+        effects = NUTRIENT_EFFECTS.get(
+            nutrient,
+            []
+        )
 
-    return round(max(min(confidence,100),0),1)
+        # Recovery Support
+        if wear["recovery"] < 50:
+
+            if nutrient in [
+                "omega3",
+                "magnesium",
+                "protein"
+            ]:
+
+                explanations.extend(effects)
+
+        # Glucose Support
+        if wear["glucose_variability"] > 30:
+
+            if nutrient in [
+                "fiber",
+                "polyphenols"
+            ]:
+
+                explanations.extend(effects)
+
+        # General Benefits
+        explanations.extend(effects)
+
+    return list(set(explanations))
 
 # =========================================================
-# AI RECOMMENDATION ENGINE
+# RECOMMENDATION ENGINE
 # =========================================================
-def food_score(food, user, pref, wear):
+def food_recommendation(food, user, wear):
 
     telemetry = fetch_supply_chain_data(food)
 
-    integrity = compute_integrity_score(telemetry)
+    integrity = compute_integrity_score(
+        telemetry
+    )
 
-    nutrients = adjusted_nutrients(food, telemetry)
+    nutrients = adjusted_nutrients(
+        food,
+        telemetry
+    )
 
-    confidence = confidence_score(telemetry, integrity)
+    explanations = explain_food(
+        user,
+        wear,
+        nutrients
+    )
 
     score = 50
 
@@ -410,54 +643,42 @@ def food_score(food, user, pref, wear):
     if user["goal"] in FOOD_LIBRARY[food]["goal"]:
         score += 20
 
-    # Nutrition
-    score += nutrients.get("protein",0) * 0.7
-
-    score += nutrients.get("fiber",0) * 1.2
-
-    score += nutrients.get("micronutrients",0) * 0.15
-
-    # Fat Loss
-    if user["goal"] == "fat_loss":
-        score -= nutrients.get("cal",0) * 0.05
-
-    # Recovery
+    # Recovery Support
     if wear["recovery"] < 50:
-        score += 8
+        score += 10
 
-    # Glucose control
+    # Glucose Support
     if wear["glucose_variability"] > 30:
-        if food in ["Oats","Spinach","Blueberries"]:
-            score += 10
+        score += 10
 
-    # User preference learning
-    if food in pref:
-        score += (pref[food] - 0.5) * 40
-
-    # Food integrity
+    # Food Integrity
     score += integrity * 0.3
 
     return {
 
         "food": food,
 
-        "score": round(score,1),
+        "description":
+        FOOD_LIBRARY[food]["desc"],
+
+        "categories":
+        FOOD_LIBRARY[food]["category"],
 
         "integrity": integrity,
 
-        "confidence": confidence,
+        "score": round(score,1),
+
+        "nutrients": nutrients,
 
         "telemetry": telemetry,
 
-        "nutrients": nutrients
+        "explanations": explanations
     }
 
 # =========================================================
 # RECOMMENDER
 # =========================================================
 def recommend(user, uid):
-
-    pref = preferences(uid)
 
     wear = wearable(uid)
 
@@ -466,17 +687,29 @@ def recommend(user, uid):
     for food in FOODS:
 
         recommendations.append(
-            food_score(food, user, pref, wear)
+
+            food_recommendation(
+                food,
+                user,
+                wear
+            )
         )
 
-    df = pd.DataFrame(recommendations)
+    df = pd.DataFrame(
+        recommendations
+    )
 
-    return df.sort_values("score", ascending=False), wear
+    return df.sort_values(
+        "score",
+        ascending=False
+    ), wear
 
 # =========================================================
 # UI
 # =========================================================
-st.title("🧠 Precision Nutrition Intelligence Platform")
+st.title(
+    "🧠 Precision Nutrition Intelligence"
+)
 
 page = st.sidebar.radio(
 
@@ -523,7 +756,11 @@ if page == "Create User":
 
     if st.button("Create User"):
 
-        create_user(weight, height, goal)
+        create_user(
+            weight,
+            height,
+            goal
+        )
 
         st.success("User Created")
 
@@ -532,18 +769,28 @@ if page == "Create User":
 # =========================================================
 elif page == "Health Insights":
 
-    users = pd.DataFrame(st.session_state.users)
+    users = pd.DataFrame(
+        st.session_state.users
+    )
 
     if users.empty:
         st.stop()
 
-    uid = st.selectbox("User", users.id)
+    uid = st.selectbox(
+        "User",
+        users.id
+    )
 
-    user = users[users.id == uid].iloc[0].to_dict()
+    user = users[
+        users.id == uid
+    ].iloc[0].to_dict()
 
     wear = wearable(uid)
 
-    risk, reasons = health_score(user, wear)
+    risk, reasons = health_score(
+        user,
+        wear
+    )
 
     st.subheader("Physiology")
 
@@ -562,9 +809,9 @@ elif page == "Health Insights":
         wear["glucose_variability"]
     )
 
-    st.subheader("Health Risk")
+    st.subheader("Risk Assessment")
 
-    st.write("Risk Level:", risk)
+    st.write("Risk:", risk)
 
     st.write("Drivers:", reasons)
 
@@ -573,22 +820,36 @@ elif page == "Health Insights":
 # =========================================================
 elif page == "Recommendations":
 
-    users = pd.DataFrame(st.session_state.users)
+    users = pd.DataFrame(
+        st.session_state.users
+    )
 
     if users.empty:
         st.stop()
 
-    uid = st.selectbox("User", users.id)
+    uid = st.selectbox(
+        "User",
+        users.id
+    )
 
-    user = users[users.id == uid].iloc[0].to_dict()
+    user = users[
+        users.id == uid
+    ].iloc[0].to_dict()
 
-    recs, wear = recommend(user, uid)
+    recs, wear = recommend(
+        user,
+        uid
+    )
 
-    st.subheader("Wearable Intelligence")
+    st.subheader(
+        "Wearable Intelligence"
+    )
 
     st.write(wear)
 
-    st.subheader("Precision Recommendations")
+    st.subheader(
+        "Precision Nutrition Recommendations"
+    )
 
     for _, r in recs.iterrows():
 
@@ -596,63 +857,82 @@ elif page == "Recommendations":
 
             st.subheader(r.food)
 
+            st.write(r.description)
+
             st.write(
-                FOOD_LIBRARY[r.food]["desc"]
+                "Biological Categories:",
+                ", ".join(r.categories)
             )
 
-            c1,c2,c3 = st.columns(3)
+            st.metric(
+                "Food Integrity",
+                r.integrity
+            )
 
-            c1.metric("AI Score", r.score)
+            st.subheader(
+                "Remaining Nutrients"
+            )
 
-            c2.metric("Food Integrity", r.integrity)
+            for nutrient, values in r.nutrients.items():
 
-            c3.metric("Confidence", r.confidence)
+                st.write(
 
-            st.write("Adjusted Nutrients")
+                    f"""
+                    {nutrient.upper()}
+                    →
+                    Remaining:
+                    {values['remaining']}
+                    |
+                    Retention:
+                    {values['retention_percent']}%
+                    """
+                )
 
-            st.json(r.nutrients)
+                st.progress(
+                    values["retention_percent"] / 100
+                )
+
+            st.subheader(
+                "Why This Helps You"
+            )
+
+            for e in r.explanations:
+
+                st.write(f"• {e}")
 
             telemetry = r.telemetry
 
-            st.write("Supply Chain Intelligence")
+            st.subheader(
+                "Food Chain Intelligence"
+            )
 
             st.write({
-                "Farm": telemetry.farm_id,
-                "Harvest Date": str(telemetry.harvest_date),
+
+                "Farm ID":
+                telemetry.farm_id,
+
+                "Harvest Date":
+                str(telemetry.harvest_date),
+
                 "Transport Temp":
                 telemetry.avg_transport_temp,
+
                 "Delay Hours":
                 telemetry.transport_delay_hours,
+
                 "Warehouse Days":
                 telemetry.warehouse_days,
+
                 "Cold Chain Breaks":
-                telemetry.cold_chain_breaks
+                telemetry.cold_chain_breaks,
+
+                "Contamination Risk":
+                telemetry.contamination_risk
             })
 
-            st.write("Recommendation Explanation")
+            c1,c2 = st.columns(2)
 
-            reasons = []
-
-            if r.integrity > 80:
-                reasons.append(
-                    "High nutrient retention"
-                )
-
-            if wear["recovery"] < 50:
-                reasons.append(
-                    "Supports recovery state"
-                )
-
-            if user["goal"] == "glucose_control":
-                reasons.append(
-                    "Supports glucose stability"
-                )
-
-            st.write(reasons)
-
-            b1,b2 = st.columns(2)
-
-            if b1.button(
+            if c1.button(
                 f"Accept {r.food}",
                 key=f"a{uid}{r.food}"
             ):
@@ -660,7 +940,9 @@ elif page == "Recommendations":
                 st.session_state.history.append({
 
                     "user": uid,
+
                     "food": r.food,
+
                     "decision": "yes"
                 })
 
@@ -668,7 +950,7 @@ elif page == "Recommendations":
 
                 st.rerun()
 
-            if b2.button(
+            if c2.button(
                 f"Reject {r.food}",
                 key=f"r{uid}{r.food}"
             ):
@@ -676,7 +958,9 @@ elif page == "Recommendations":
                 st.session_state.history.append({
 
                     "user": uid,
+
                     "food": r.food,
+
                     "decision": "no"
                 })
 
@@ -687,12 +971,17 @@ elif page == "Recommendations":
 # =========================================================
 elif page == "Habit Tracker":
 
-    users = pd.DataFrame(st.session_state.users)
+    users = pd.DataFrame(
+        st.session_state.users
+    )
 
     if users.empty:
         st.stop()
 
-    uid = st.selectbox("User", users.id)
+    uid = st.selectbox(
+        "User",
+        users.id
+    )
 
     st.metric(
         "Healthy Nutrition Actions",
@@ -709,7 +998,9 @@ elif page == "Food Intelligence":
         FOODS
     )
 
-    telemetry = fetch_supply_chain_data(food)
+    telemetry = fetch_supply_chain_data(
+        food
+    )
 
     integrity = compute_integrity_score(
         telemetry
@@ -720,11 +1011,14 @@ elif page == "Food Intelligence":
         telemetry
     )
 
-    st.subheader("Farm → Plate Intelligence")
+    st.subheader(
+        "Farm → Plate Intelligence"
+    )
 
     st.write({
 
-        "Farm ID": telemetry.farm_id,
+        "Farm ID":
+        telemetry.farm_id,
 
         "Harvest Date":
         str(telemetry.harvest_date),
@@ -744,9 +1038,6 @@ elif page == "Food Intelligence":
         "Warehouse Days":
         telemetry.warehouse_days,
 
-        "Humidity Exposure":
-        telemetry.humidity_exposure,
-
         "Processing Level":
         telemetry.processing_level,
 
@@ -758,34 +1049,29 @@ elif page == "Food Intelligence":
     })
 
     st.metric(
-        "Food Integrity Score",
+        "Food Integrity",
         integrity
     )
 
     st.subheader(
-        "Effective Nutritional Value"
+        "Nutrient Retention"
     )
 
-    st.json(nutrients)
+    for nutrient, values in nutrients.items():
 
-    st.subheader(
-        "Biological Intelligence Insight"
-    )
+        st.write(
 
-    if integrity > 80:
-
-        st.success(
-            "Food retained strong nutrient integrity."
+            f"""
+            {nutrient.upper()}
+            →
+            Remaining:
+            {values['remaining']}
+            |
+            Retention:
+            {values['retention_percent']}%
+            """
         )
 
-    elif integrity > 60:
-
-        st.warning(
-            "Moderate nutrient degradation detected."
-        )
-
-    else:
-
-        st.error(
-            "Significant nutrient degradation risk."
+        st.progress(
+            values["retention_percent"] / 100
         )
