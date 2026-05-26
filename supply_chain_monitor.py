@@ -23,6 +23,16 @@ def init():
 init()
 
 # =========================================================
+# SAFE OPTIONS
+# =========================================================
+ALLERGY_OPTIONS = [
+    [],
+    ["nuts"],
+    ["gluten"],
+    ["dairy"]
+]
+
+# =========================================================
 # FOOD DOMAIN
 # =========================================================
 FOODS = [
@@ -171,7 +181,6 @@ BASE_NUTRITION = {
 # NUTRIENT SENSITIVITY
 # =========================================================
 NUTRIENT_SENSITIVITY = {
-
     "vitamin_c": 1.8,
     "polyphenols": 1.6,
     "omega3": 1.5,
@@ -184,7 +193,7 @@ NUTRIENT_SENSITIVITY = {
 }
 
 # =========================================================
-# BIOLOGICAL EFFECTS
+# NUTRIENT EFFECTS
 # =========================================================
 NUTRIENT_EFFECTS = {
 
@@ -252,7 +261,7 @@ class SupplyTelemetry:
     cold_chain_breaks: int
 
 # =========================================================
-# MOCK FARM TO PLATE DATA
+# MOCK SUPPLY CHAIN
 # =========================================================
 def fetch_supply_chain_data(food):
 
@@ -303,7 +312,7 @@ def create_user(weight, height, goal):
 
         "goal": goal,
 
-        "bmi": round(weight/(height**2),1),
+        "bmi": round(weight / (height ** 2), 1),
 
         # =================================================
         # DIETARY BEHAVIOUR
@@ -311,7 +320,7 @@ def create_user(weight, height, goal):
         "dietary_behavior": {
 
             "hydration_level":
-            round(np.random.uniform(0.4,1.0),2),
+            round(np.random.uniform(0.4, 1.0), 2),
 
             "cravings":
             np.random.choice([
@@ -329,16 +338,13 @@ def create_user(weight, height, goal):
             ]),
 
             "smoking":
-            np.random.choice([
-                True,
-                False
-            ]),
+            bool(np.random.choice([True, False])),
 
             "food_discipline":
-            round(np.random.uniform(0.3,1.0),2),
+            round(np.random.uniform(0.3, 1.0), 2),
 
             "meal_regularity":
-            round(np.random.uniform(0.4,1.0),2)
+            round(np.random.uniform(0.4, 1.0), 2)
         },
 
         # =================================================
@@ -347,21 +353,21 @@ def create_user(weight, height, goal):
         "medical_history": {
 
             "diabetes_risk":
-            round(np.random.uniform(0,1),2),
+            round(np.random.uniform(0, 1), 2),
 
             "hypertension_risk":
-            round(np.random.uniform(0,1),2),
+            round(np.random.uniform(0, 1), 2),
 
             "cholesterol_risk":
-            round(np.random.uniform(0,1),2),
+            round(np.random.uniform(0, 1), 2),
 
             "food_allergies":
-            np.random.choice([
-                [],
-                ["nuts"],
-                ["gluten"],
-                ["dairy"]
-            ])
+            ALLERGY_OPTIONS[
+                np.random.randint(
+                    0,
+                    len(ALLERGY_OPTIONS)
+                )
+            ]
         },
 
         # =================================================
@@ -370,16 +376,16 @@ def create_user(weight, height, goal):
         "microbiome": {
 
             "diversity_score":
-            round(np.random.uniform(0.3,1.0),2),
+            round(np.random.uniform(0.3, 1.0), 2),
 
             "inflammation_level":
-            round(np.random.uniform(0,1),2),
+            round(np.random.uniform(0, 1), 2),
 
             "fiber_response":
-            round(np.random.uniform(0,1),2),
+            round(np.random.uniform(0, 1), 2),
 
             "sugar_sensitivity":
-            round(np.random.uniform(0,1),2)
+            round(np.random.uniform(0, 1), 2)
         },
 
         # =================================================
@@ -388,13 +394,13 @@ def create_user(weight, height, goal):
         "family_history": {
 
             "diabetes":
-            round(np.random.uniform(0,1),2),
+            round(np.random.uniform(0, 1), 2),
 
             "heart_disease":
-            round(np.random.uniform(0,1),2),
+            round(np.random.uniform(0, 1), 2),
 
             "obesity":
-            round(np.random.uniform(0,1),2)
+            round(np.random.uniform(0, 1), 2)
         }
     })
 
@@ -426,7 +432,7 @@ def wearable(uid):
 # =========================================================
 # BIOLOGICAL RISK ENGINE
 # =========================================================
-def biological_risk(user, wear):
+def biological_risk(user):
 
     risk = 0
     reasons = []
@@ -436,9 +442,6 @@ def biological_risk(user, wear):
     micro = user["microbiome"]
     family = user["family_history"]
 
-    # =====================================================
-    # LIFESTYLE
-    # =====================================================
     if diet["hydration_level"] < 0.5:
         risk += 1.5
         reasons.append("Low hydration")
@@ -451,9 +454,6 @@ def biological_risk(user, wear):
         risk += 1
         reasons.append("Moderate alcohol intake")
 
-    # =====================================================
-    # MEDICAL
-    # =====================================================
     if medical["diabetes_risk"] > 0.6:
         risk += 2
         reasons.append("Elevated diabetes risk")
@@ -462,9 +462,6 @@ def biological_risk(user, wear):
         risk += 1.5
         reasons.append("Hypertension risk")
 
-    # =====================================================
-    # MICROBIOME
-    # =====================================================
     if micro["inflammation_level"] > 0.6:
         risk += 2
         reasons.append("Inflammatory microbiome")
@@ -473,9 +470,6 @@ def biological_risk(user, wear):
         risk += 1.5
         reasons.append("Sugar sensitivity")
 
-    # =====================================================
-    # FAMILY HISTORY
-    # =====================================================
     if family["diabetes"] > 0.6:
         risk += 1.5
         reasons.append("Family diabetes risk")
@@ -495,7 +489,7 @@ def biological_risk(user, wear):
     return level, reasons
 
 # =========================================================
-# NUTRIENT RETENTION ENGINE
+# NUTRIENT RETENTION
 # =========================================================
 def adjusted_nutrients(food, telemetry):
 
@@ -515,15 +509,10 @@ def adjusted_nutrients(food, telemetry):
         )
 
         degradation = (
-
             heat_factor * 0.2 * sensitivity
-
             +
-
             delay_factor * 0.15 * sensitivity
-
             +
-
             processing_factor * 0.25 * sensitivity
         )
 
@@ -541,26 +530,22 @@ def adjusted_nutrients(food, telemetry):
     return adjusted
 
 # =========================================================
-# FOOD INTEGRITY ENGINE
+# FOOD INTEGRITY
 # =========================================================
 def compute_integrity_score(t):
 
     score = 100
 
     score -= t.processing_level * 20
-
     score -= t.contamination_risk * 25
-
     score -= t.transport_delay_hours * 0.5
-
     score += t.soil_quality * 10
-
     score -= t.pesticide_score * 15
 
     return round(max(min(score,100),0),1)
 
 # =========================================================
-# BIOLOGICAL MODIFIER
+# BIOLOGICAL FOOD MODIFIER
 # =========================================================
 def biological_food_modifier(food, user):
 
@@ -570,9 +555,6 @@ def biological_food_modifier(food, user):
     diet = user["dietary_behavior"]
     medical = user["medical_history"]
 
-    # =====================================================
-    # INFLAMMATION
-    # =====================================================
     if micro["inflammation_level"] > 0.6:
 
         if food in [
@@ -582,9 +564,6 @@ def biological_food_modifier(food, user):
         ]:
             modifier += 10
 
-    # =====================================================
-    # SUGAR SENSITIVITY
-    # =====================================================
     if micro["sugar_sensitivity"] > 0.6:
 
         if food in [
@@ -593,9 +572,6 @@ def biological_food_modifier(food, user):
         ]:
             modifier += 8
 
-    # =====================================================
-    # SMOKING
-    # =====================================================
     if diet["smoking"]:
 
         if food in [
@@ -605,9 +581,6 @@ def biological_food_modifier(food, user):
         ]:
             modifier += 6
 
-    # =====================================================
-    # DIABETES RISK
-    # =====================================================
     if medical["diabetes_risk"] > 0.6:
 
         if food in [
@@ -619,9 +592,9 @@ def biological_food_modifier(food, user):
     return modifier
 
 # =========================================================
-# BIOLOGICAL EXPLANATION ENGINE
+# FOOD EXPLANATION ENGINE
 # =========================================================
-def explain_food(user, wear, nutrients):
+def explain_food(nutrients):
 
     explanations = []
 
@@ -640,7 +613,7 @@ def explain_food(user, wear, nutrients):
     return list(set(explanations))
 
 # =========================================================
-# RECOMMENDATION ENGINE
+# FOOD RECOMMENDATION ENGINE
 # =========================================================
 def food_recommendation(food, user, wear):
 
@@ -656,8 +629,6 @@ def food_recommendation(food, user, wear):
     )
 
     explanations = explain_food(
-        user,
-        wear,
         nutrients
     )
 
@@ -668,32 +639,17 @@ def food_recommendation(food, user, wear):
 
     score = 50
 
-    # =====================================================
-    # GOAL ALIGNMENT
-    # =====================================================
     if user["goal"] in FOOD_LIBRARY[food]["goal"]:
         score += 20
 
-    # =====================================================
-    # RECOVERY
-    # =====================================================
     if wear["recovery"] < 50:
         score += 10
 
-    # =====================================================
-    # GLUCOSE
-    # =====================================================
     if wear["glucose_variability"] > 30:
         score += 10
 
-    # =====================================================
-    # FOOD INTEGRITY
-    # =====================================================
     score += integrity * 0.3
 
-    # =====================================================
-    # BIOLOGICAL BONUS
-    # =====================================================
     score += bio_bonus
 
     return {
@@ -757,9 +713,7 @@ st.title(
 )
 
 page = st.sidebar.radio(
-
     "Pages",
-
     [
         "Create User",
         "Health Insights",
@@ -788,9 +742,7 @@ if page == "Create User":
     )
 
     goal = st.selectbox(
-
         "Goal",
-
         [
             "fitness",
             "fat_loss",
@@ -831,23 +783,16 @@ elif page == "Health Insights":
 
     wear = wearable(uid)
 
-    risk, reasons = biological_risk(
-        user,
-        wear
-    )
+    risk, reasons = biological_risk(user)
 
     st.subheader("Wearable Intelligence")
 
     c1,c2,c3,c4,c5 = st.columns(5)
 
     c1.metric("BMI", user["bmi"])
-
     c2.metric("Sleep", wear["sleep"])
-
     c3.metric("Recovery", wear["recovery"])
-
     c4.metric("HRV", wear["hrv"])
-
     c5.metric(
         "Glucose Variability",
         wear["glucose_variability"]
@@ -860,24 +805,17 @@ elif page == "Health Insights":
     for r in reasons:
         st.write("•", r)
 
-    # =====================================================
-    # BIOLOGICAL LAYERS
-    # =====================================================
     st.subheader("Dietary Behaviour")
-
-    st.write(user["dietary_behavior"])
+    st.json(user["dietary_behavior"])
 
     st.subheader("Medical History")
-
-    st.write(user["medical_history"])
+    st.json(user["medical_history"])
 
     st.subheader("Microbiome Profile")
-
-    st.write(user["microbiome"])
+    st.json(user["microbiome"])
 
     st.subheader("Family History")
-
-    st.write(user["family_history"])
+    st.json(user["family_history"])
 
 # =========================================================
 # RECOMMENDATIONS
@@ -905,11 +843,8 @@ elif page == "Recommendations":
         uid
     )
 
-    st.subheader(
-        "Wearable State"
-    )
-
-    st.write(wear)
+    st.subheader("Wearable State")
+    st.json(wear)
 
     for _, r in recs.iterrows():
 
@@ -936,17 +871,11 @@ elif page == "Recommendations":
                 r.integrity
             )
 
-            # =================================================
-            # NUTRIENTS
-            # =================================================
-            st.subheader(
-                "Remaining Nutrients"
-            )
+            st.subheader("Remaining Nutrients")
 
             for nutrient, values in r.nutrients.items():
 
                 st.write(
-
                     f"""
                     {nutrient.upper()}
                     →
@@ -962,25 +891,14 @@ elif page == "Recommendations":
                     values["retention_percent"] / 100
                 )
 
-            # =================================================
-            # BENEFITS
-            # =================================================
-            st.subheader(
-                "Why This Helps You"
-            )
+            st.subheader("Why This Helps You")
 
             for e in r.explanations:
-
                 st.write("•", e)
 
-            # =================================================
-            # FOOD CHAIN INTELLIGENCE
-            # =================================================
             t = r.telemetry
 
-            st.subheader(
-                "Food Chain Intelligence"
-            )
+            st.subheader("Food Chain Intelligence")
 
             c1,c2,c3 = st.columns(3)
 
@@ -1037,9 +955,7 @@ elif page == "Food Intelligence":
         telemetry
     )
 
-    st.subheader(
-        "Farm → Plate Intelligence"
-    )
+    st.subheader("Farm → Plate Intelligence")
 
     c1,c2,c3 = st.columns(3)
 
@@ -1078,14 +994,11 @@ elif page == "Food Intelligence":
         integrity
     )
 
-    st.subheader(
-        "Remaining Nutrients"
-    )
+    st.subheader("Remaining Nutrients")
 
     for nutrient, values in nutrients.items():
 
         st.write(
-
             f"""
             {nutrient.upper()}
             →
