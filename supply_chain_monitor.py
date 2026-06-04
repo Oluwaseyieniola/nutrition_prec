@@ -16,7 +16,14 @@ st.set_page_config(
 # SESSION INIT
 # =========================================================
 def init():
-    keys = ["users", "history", "habits"]
+   keys = [
+    "users",
+    "history",
+    "habits",
+    "biomarkers",
+    "food_logs",
+    "lab_results"
+]
 
     for k in keys:
         if k not in st.session_state:
@@ -326,7 +333,23 @@ def fetch_supply_chain_data(food):
 # =========================================================
 # USER ENGINE
 # =========================================================
-def create_user(weight, height, goal):
+def create_user(
+    age,
+    sex,
+    weight,
+    height,
+    goal,
+    activity_level,
+    sleep_hours,
+    stress_level,
+    diet_pattern,
+    allergies,
+    medical_conditions,
+    medications,
+    smoking,
+    alcohol,
+    waist_circumference
+):
 
     uid = len(st.session_state.users) + 1
 
@@ -335,9 +358,20 @@ def create_user(weight, height, goal):
         1
     )
 
+    bmr = (
+        10 * weight +
+        6.25 * (height * 100) -
+        5 * age +
+        (5 if sex == "Male" else -161)
+    )
+
     st.session_state.users.append({
 
         "id": uid,
+
+        "age": age,
+
+        "sex": sex,
 
         "weight": weight,
 
@@ -345,7 +379,29 @@ def create_user(weight, height, goal):
 
         "goal": goal,
 
-        "bmi": bmi
+        "bmi": bmi,
+
+        "bmr": round(bmr),
+
+        "activity_level": activity_level,
+
+        "sleep_hours": sleep_hours,
+
+        "stress_level": stress_level,
+
+        "diet_pattern": diet_pattern,
+
+        "allergies": allergies,
+
+        "medical_conditions": medical_conditions,
+
+        "medications": medications,
+
+        "smoking": smoking,
+
+        "alcohol": alcohol,
+
+        "waist_circumference": waist_circumference
     })
 
 # =========================================================
@@ -729,10 +785,24 @@ page = st.sidebar.radio(
 # =========================================================
 if page == "Create User":
 
+    st.subheader("Basic Information")
+
+    age = st.number_input(
+        "Age",
+        18,
+        100,
+        30
+    )
+
+    sex = st.selectbox(
+        "Sex",
+        ["Male", "Female"]
+    )
+
     weight = st.number_input(
         "Weight (kg)",
         40.0,
-        200.0,
+        250.0,
         75.0
     )
 
@@ -743,26 +813,113 @@ if page == "Create User":
         1.75
     )
 
+    waist_circumference = st.number_input(
+        "Waist Circumference (cm)",
+        40,
+        200,
+        90
+    )
+
+    st.subheader("Goals")
+
     goal = st.selectbox(
-
         "Goal",
-
         [
             "fitness",
             "fat_loss",
-            "glucose_control"
+            "glucose_control",
+            "muscle_gain",
+            "longevity",
+            "gut_health"
         ]
+    )
+
+    st.subheader("Lifestyle")
+
+    activity_level = st.selectbox(
+        "Activity Level",
+        [
+            "sedentary",
+            "lightly_active",
+            "moderately_active",
+            "very_active",
+            "athlete"
+        ]
+    )
+
+    sleep_hours = st.slider(
+        "Average Sleep",
+        3,
+        12,
+        7
+    )
+
+    stress_level = st.slider(
+        "Stress Level",
+        1,
+        10,
+        5
+    )
+
+    smoking = st.selectbox(
+        "Smoking",
+        ["No", "Yes"]
+    )
+
+    alcohol = st.selectbox(
+        "Alcohol",
+        ["No", "Occasional", "Frequent"]
+    )
+
+    st.subheader("Dietary Profile")
+
+    diet_pattern = st.selectbox(
+        "Diet Pattern",
+        [
+            "omnivore",
+            "vegetarian",
+            "vegan",
+            "pescatarian",
+            "keto",
+            "mediterranean"
+        ]
+    )
+
+    allergies = st.text_area(
+        "Food Allergies"
+    )
+
+    medical_conditions = st.text_area(
+        "Medical Conditions"
+    )
+
+    medications = st.text_area(
+        "Current Medications"
     )
 
     if st.button("Create User"):
 
         create_user(
+            age,
+            sex,
             weight,
             height,
-            goal
+            goal,
+            activity_level,
+            sleep_hours,
+            stress_level,
+            diet_pattern,
+            allergies,
+            medical_conditions,
+            medications,
+            smoking,
+            alcohol,
+            waist_circumference
         )
 
-        st.success("User Created")
+        st.success(
+            "Precision Nutrition Profile Created"
+        )
 
 # =========================================================
 # HEALTH INSIGHTS
