@@ -3,15 +3,11 @@ import pandas as pd
 import numpy as np
 import datetime
 import random
-from dataclasses import dataclass
 
 # =========================================================
-# PAGE CONFIG
+# CONFIG
 # =========================================================
-st.set_page_config(
-    page_title="Precision Nutrition Intelligence",
-    layout="wide"
-)
+st.set_page_config(page_title="Precision Nutrition Intelligence", layout="wide")
 
 # =========================================================
 # SESSION STATE
@@ -23,21 +19,13 @@ def init():
 init()
 
 # =========================================================
-# FOOD DOMAIN
+# FOOD SYSTEM
 # =========================================================
 FOODS = [
-    "Salmon",
-    "Oats",
-    "Eggs",
-    "Spinach",
-    "Chicken Breast",
-    "Avocado",
-    "Blueberries"
+    "Salmon", "Oats", "Eggs", "Spinach",
+    "Chicken Breast", "Avocado", "Blueberries"
 ]
 
-# =========================================================
-# FOOD KNOWLEDGE
-# =========================================================
 FOOD_LIBRARY = {
     "Salmon": {"goal": ["fitness", "glucose_control"], "desc": "Omega-3 rich recovery food"},
     "Oats": {"goal": ["glucose_control"], "desc": "Stable energy carbohydrates"},
@@ -49,71 +37,32 @@ FOOD_LIBRARY = {
 }
 
 # =========================================================
-# BASE NUTRITION
+# SUPPLY CHAIN (CACHED + CLEAN)
 # =========================================================
-BASE_NUTRITION = {
-    "Salmon": {"protein": 25, "omega3": 100, "vitamin_d": 90, "cal": 208},
-    "Oats": {"fiber": 85, "protein": 17, "magnesium": 70, "cal": 389},
-    "Eggs": {"protein": 12, "b12": 70, "cal": 155},
-    "Spinach": {"magnesium": 95, "iron": 90, "cal": 23},
-    "Chicken Breast": {"protein": 31, "selenium": 55, "cal": 165},
-    "Avocado": {"healthy_fats": 90, "fiber": 65, "cal": 160},
-    "Blueberries": {"polyphenols": 100, "vitamin_c": 80, "cal": 57}
-}
-
-# =========================================================
-# NUTRIENT EFFECTS
-# =========================================================
-NUTRIENT_EFFECTS = {
-    "omega3": ["Reduces inflammation", "Supports heart health"],
-    "protein": ["Muscle repair", "Satiety support"],
-    "fiber": ["Gut health", "Glucose stability"],
-    "magnesium": ["Sleep support", "Recovery support"],
-    "vitamin_c": ["Immune support"],
-    "healthy_fats": ["Hormone balance"],
-    "polyphenols": ["Anti-oxidative protection"]
-}
-
-# =========================================================
-# TELEMETRY MODEL
-# =========================================================
-@dataclass
-class SupplyTelemetry:
-    farm_id: str
-    harvest_date: datetime.date
-    soil_quality: float
-    pesticide_score: float
-    avg_transport_temp: float
-    transport_delay_hours: int
-    processing_level: float
-    contamination_risk: float
-
-# =========================================================
-# MOCK SUPPLY CHAIN
-# =========================================================
+@st.cache_data
 def fetch_supply_chain_data(food):
     rng = np.random.default_rng(abs(hash(food)) % 10000)
 
-    return SupplyTelemetry(
-        farm_id=f"FARM-{rng.integers(100,999)}",
-        harvest_date=datetime.date.today() - datetime.timedelta(days=int(rng.integers(1,10))),
-        soil_quality=round(rng.uniform(0.6,1.0),2),
-        pesticide_score=round(rng.uniform(0.0,0.4),2),
-        avg_transport_temp=round(rng.uniform(2,15),1),
-        transport_delay_hours=int(rng.integers(0,20)),
-        processing_level=round(rng.uniform(0.0,0.6),2),
-        contamination_risk=round(rng.uniform(0.0,0.4),2),
-    )
+    return {
+        "farm_id": f"FARM-{rng.integers(100,999)}",
+        "harvest_date": datetime.date.today() - datetime.timedelta(days=int(rng.integers(1,10))),
+        "soil_quality": float(rng.uniform(0.6, 1.0)),
+        "pesticide_score": float(rng.uniform(0.0, 0.4)),
+        "avg_transport_temp": float(rng.uniform(2, 15)),
+        "transport_delay_hours": int(rng.integers(0, 20)),
+        "processing_level": float(rng.uniform(0.0, 0.6)),
+        "contamination_risk": float(rng.uniform(0.0, 0.4)),
+    }
 
 # =========================================================
-# USER CREATION (NEW SCHEMA)
+# USER CREATION
 # =========================================================
-def create_user(data):
-    data["id"] = len(st.session_state.users) + 1
-    st.session_state.users.append(data)
+def create_user(user):
+    user["id"] = len(st.session_state.users) + 1
+    st.session_state.users.append(user)
 
 # =========================================================
-# RISK ENGINE (UPDATED TO NEW SCHEMA)
+# RISK ENGINE
 # =========================================================
 def biological_risk(user):
     risk = 0
@@ -121,27 +70,27 @@ def biological_risk(user):
 
     lifestyle = user["lifestyle"]
     medical = user["medical_history"]
-    family = user["family_history"]
     wearable = user["wearable_data"]
 
     if lifestyle["smoking"]:
-        risk += 2; reasons.append("Smoking detected")
+        risk += 2
+        reasons.append("Smoking detected")
 
     if lifestyle["alcohol_use"] == "high":
-        risk += 1.5; reasons.append("High alcohol intake")
+        risk += 1.5
+        reasons.append("High alcohol intake")
 
     if wearable["sleep_hours"] < 6:
-        risk += 1.5; reasons.append("Low sleep")
-
-    if medical["conditions"]:
-        if "diabetes" in medical["conditions"]:
-            risk += 2; reasons.append("Diabetes condition")
-
-    if family["diabetes"]:
-        risk += 1.5; reasons.append("Family diabetes risk")
+        risk += 1.5
+        reasons.append("Low sleep")
 
     if wearable["hrv"] < 40:
-        risk += 1; reasons.append("Low HRV")
+        risk += 1
+        reasons.append("Low HRV")
+
+    if "diabetes" in medical["conditions"]:
+        risk += 2
+        reasons.append("Diabetes condition")
 
     if risk > 5:
         return "HIGH", reasons
@@ -150,43 +99,56 @@ def biological_risk(user):
     return "LOW", reasons
 
 # =========================================================
-# NUTRIENT ADJUSTMENT
+# SCORE ENGINE (REAL LOGIC)
 # =========================================================
-def adjusted_nutrients(food, telemetry):
-    base = BASE_NUTRITION[food]
-    adjusted = {}
+def food_score(food, user, telemetry):
 
-    heat = telemetry.avg_transport_temp / 10
-    delay = telemetry.transport_delay_hours / 24
-    process = telemetry.processing_level
-
-    for nutrient, value in base.items():
-        degradation = heat * 0.2 + delay * 0.15 + process * 0.25
-        retention = max(0.2, 1 - degradation)
-
-        adjusted[nutrient] = {
-            "remaining": round(value * retention,1),
-            "retention": round(retention * 100,1)
-        }
-
-    return adjusted
-
-# =========================================================
-# FOOD SCORE ENGINE
-# =========================================================
-def food_score(food, user):
     score = 50
 
-    if user["dietary_preferences"]["goal"] in FOOD_LIBRARY[food]["goal"]:
+    prefs = user["dietary_preferences"]
+    wear = user["wearable_data"]
+    lifestyle = user["lifestyle"]
+    medical = user["medical_history"]
+
+    # goal alignment
+    if prefs["goal"] in FOOD_LIBRARY[food]["goal"]:
         score += 25
 
-    if user["wearable_data"]["recovery_score"] < 50:
+    # wearable signals
+    if wear["recovery_score"] < 50:
         score += 10
-
-    if user["wearable_data"]["hrv"] < 50:
+    if wear["hrv"] < 50:
         score += 10
+    if wear["sleep_hours"] < 6:
+        score -= 10
 
-    return score
+    # lifestyle penalties
+    if lifestyle["smoking"]:
+        score -= 10
+    if lifestyle["alcohol_use"] == "high":
+        score -= 5
+
+    # medical interaction
+    if "diabetes" in medical["conditions"] and food in ["Oats", "Blueberries"]:
+        score -= 5
+
+    # supply chain quality
+    integrity = compute_integrity_score(telemetry)
+    score += integrity * 0.2
+
+    return round(max(min(score, 100), 0), 1)
+
+# =========================================================
+# SUPPLY CHAIN SCORE
+# =========================================================
+def compute_integrity_score(t):
+    score = 100
+    score -= t["processing_level"] * 20
+    score -= t["contamination_risk"] * 25
+    score -= t["transport_delay_hours"] * 0.5
+    score += t["soil_quality"] * 10
+    score -= t["pesticide_score"] * 15
+    return round(max(min(score, 100), 0), 1)
 
 # =========================================================
 # UI
@@ -199,7 +161,7 @@ page = st.sidebar.radio(
 )
 
 # =========================================================
-# CREATE USER (NEW FORM)
+# CREATE USER (FULL SCHEMA)
 # =========================================================
 if page == "Create User":
 
@@ -221,20 +183,17 @@ if page == "Create User":
         sleep = st.number_input("Sleep (hrs)", 0.0, 12.0, 7.0)
         recovery = st.slider("Recovery Score", 0, 100, 70)
 
-        activity = st.selectbox("Activity Level", ["low","moderate","high"])
-
-        smoking = st.radio("Smoking", ["no","yes"]) == "yes"
-        alcohol = st.selectbox("Alcohol", ["none","low","moderate","high"])
+        smoking = st.radio("Smoking", ["no", "yes"]) == "yes"
+        alcohol = st.selectbox("Alcohol Use", ["none", "low", "moderate", "high"])
 
         conditions = st.multiselect(
             "Medical Conditions",
-            ["diabetes","hypertension","asthma","none"]
+            ["diabetes", "hypertension", "asthma", "none"]
         )
 
-        fam_diabetes = st.radio("Family Diabetes", ["no","yes"]) == "yes"
+        fam_diabetes = st.radio("Family Diabetes", ["no", "yes"]) == "yes"
 
-        goal = st.selectbox("Goal", ["fitness","fat_loss","glucose_control"])
-        allergies = st.multiselect("Allergies", ["nuts","gluten","dairy"])
+        goal = st.selectbox("Goal", ["fitness", "fat_loss", "glucose_control"])
 
         submitted = st.form_submit_button("Create User")
 
@@ -256,16 +215,14 @@ if page == "Create User":
                     "heart_rate": heart_rate,
                     "hrv": hrv,
                     "sleep_hours": sleep,
-                    "recovery_score": recovery,
-                    "activity": activity
+                    "recovery_score": recovery
                 },
                 "lifestyle": {
                     "smoking": smoking,
                     "alcohol_use": alcohol
                 },
                 "medical_history": {
-                    "conditions": conditions,
-                    "allergies": allergies
+                    "conditions": conditions
                 },
                 "family_history": {
                     "diabetes": fam_diabetes
@@ -279,42 +236,84 @@ if page == "Create User":
             st.success("User created successfully")
 
 # =========================================================
-# HEALTH INSIGHTS
+# HEALTH INSIGHTS (FIXED + STRUCTURED)
 # =========================================================
 elif page == "Health Insights":
 
     if not st.session_state.users:
-        st.warning("No users yet")
+        st.warning("No users available")
         st.stop()
 
-    uid = st.selectbox("User", range(len(st.session_state.users)))
-    user = st.session_state.users[uid]
+    user = st.session_state.users[st.selectbox("Select User", range(len(st.session_state.users)))]
+
+    st.subheader("Demographics")
+    st.json(user["demographics"])
+
+    st.subheader("Body")
+    st.json(user["anthropometrics"])
+
+    st.subheader("Wearables")
+    st.json(user["wearable_data"])
+
+    st.subheader("Lifestyle")
+    st.json(user["lifestyle"])
+
+    st.subheader("Medical History")
+    st.json(user["medical_history"])
 
     risk, reasons = biological_risk(user)
 
-    st.subheader("Risk Profile")
-    st.write(risk)
-    st.write(reasons)
+    st.subheader("Risk Engine")
+    st.metric("Risk Level", risk)
+
+    for r in reasons:
+        st.write("•", r)
 
 # =========================================================
-# FOOD INTELLIGENCE
+# FOOD INTELLIGENCE (RECOMMENDATION SYSTEM FIXED)
 # =========================================================
 elif page == "Food Intelligence":
 
-    food = st.selectbox("Food", FOODS)
-    user = st.session_state.users[0] if st.session_state.users else None
-
-    if not user:
+    if not st.session_state.users:
         st.warning("Create a user first")
         st.stop()
 
-    telemetry = fetch_supply_chain_data(food)
+    user = st.session_state.users[st.selectbox("Select User", range(len(st.session_state.users)))]
 
-    st.subheader("Supply Chain")
-    st.write(telemetry)
+    results = []
 
-    st.subheader("Food Score")
-    st.write(food_score(food, user))
+    for food in FOODS:
 
-    st.subheader("Nutrition (simplified)")
-    st.write(adjusted_nutrients(food, telemetry))
+        telemetry = fetch_supply_chain_data(food)
+
+        score = food_score(food, user, telemetry)
+
+        results.append({
+            "food": food,
+            "score": score,
+            "telemetry": telemetry
+        })
+
+    results = sorted(results, key=lambda x: x["score"], reverse=True)
+
+    st.subheader("Ranked Recommendations")
+
+    for r in results:
+
+        t = r["telemetry"]
+
+        with st.container(border=True):
+
+            st.subheader(f"{r['food']} — Score: {r['score']}")
+            st.write(FOOD_LIBRARY[r["food"]]["desc"])
+
+            c1, c2, c3 = st.columns(3)
+
+            c1.metric("Farm", t["farm_id"])
+            c1.metric("Harvest", str(t["harvest_date"]))
+
+            c2.metric("Temp", f"{t['avg_transport_temp']:.1f}°C")
+            c2.metric("Delay", t["transport_delay_hours"])
+
+            c3.metric("Contamination", round(t["contamination_risk"], 2))
+            c3.metric("Processing", round(t["processing_level"], 2))
