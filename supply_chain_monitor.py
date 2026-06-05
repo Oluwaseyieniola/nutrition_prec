@@ -16,14 +16,7 @@ st.set_page_config(
 # SESSION INIT
 # =========================================================
 def init():
-    keys = [
-        "users",
-        "history",
-        "habits",
-        "biomarkers",
-        "food_logs",
-        "lab_results"
-    ]
+    keys = ["users", "history", "habits", "biomarkers", "food_logs", "lab_results"]
 
     for k in keys:
         if k not in st.session_state:
@@ -34,15 +27,8 @@ init()
 # =========================================================
 # FOOD DOMAIN
 # =========================================================
-FOODS = [
-    "Salmon", "Oats", "Eggs",
-    "Spinach", "Chicken Breast",
-    "Avocado", "Blueberries"
-]
+FOODS = ["Salmon", "Oats", "Eggs", "Spinach", "Chicken Breast", "Avocado", "Blueberries"]
 
-# =========================================================
-# FOOD KNOWLEDGE
-# =========================================================
 FOOD_LIBRARY = {
     "Salmon": {"goal": ["fitness", "glucose_control"], "category": ["RECOVERY_SUPPORT", "ANTI_INFLAMMATORY"], "desc": "Omega-3 rich recovery food"},
     "Oats": {"goal": ["glucose_control"], "category": ["GLUCOSE_STABILIZING", "MICROBIOME_SUPPORT"], "desc": "Stable energy carbohydrates"},
@@ -53,9 +39,6 @@ FOOD_LIBRARY = {
     "Blueberries": {"goal": ["glucose_control"], "category": ["COGNITIVE_SUPPORT", "ANTI_INFLAMMATORY"], "desc": "Antioxidant support"}
 }
 
-# =========================================================
-# BASE NUTRITION
-# =========================================================
 BASE_NUTRITION = {
     "Salmon": {"protein": 25, "omega3": 100, "vitamin_d": 90, "selenium": 75, "b12": 85, "cal": 208},
     "Oats": {"fiber": 85, "protein": 17, "magnesium": 70, "beta_glucan": 95, "polyphenols": 55, "cal": 389},
@@ -67,33 +50,64 @@ BASE_NUTRITION = {
 }
 
 # =========================================================
-# SENSITIVITY + EFFECTS
+# WEARABLE STREAM (UPGRADED)
 # =========================================================
-NUTRIENT_SENSITIVITY = {
-    "vitamin_c": 1.8,
-    "polyphenols": 1.6,
-    "omega3": 1.5,
-    "vitamin_d": 1.3,
-    "antioxidants": 1.6,
-    "healthy_fats": 1.2,
-    "magnesium": 0.5,
-    "protein": 0.3,
-    "fiber": 0.4
-}
+def wearable_stream(uid):
+    rng = np.random.default_rng(uid)
 
-NUTRIENT_EFFECTS = {
-    "omega3": ["Improves recovery", "Reduces inflammation"],
-    "protein": ["Muscle repair", "Satiety support"],
-    "fiber": ["Glucose stability", "Gut microbiome support"],
-    "polyphenols": ["Oxidative stress reduction"],
-    "magnesium": ["Sleep improvement"],
-    "vitamin_c": ["Immune support"],
-    "healthy_fats": ["Hormonal balance"],
-    "antioxidants": ["Cell protection"]
-}
+    sleep = rng.normal(7, 1)
+    stress = rng.uniform(3, 9)
+    steps = rng.uniform(2000, 12000)
+
+    sleep_debt = max(0, 8 - sleep)
+
+    recovery = max(0, 100 - (stress * 8 + sleep_debt * 10))
+    glucose_variability = rng.uniform(10, 45)
+
+    return {
+        "sleep_hours": round(sleep, 2),
+        "sleep_debt": round(sleep_debt, 2),
+        "stress": round(stress, 2),
+        "activity_steps": int(steps),
+        "recovery": round(recovery, 1),
+        "glucose_variability": round(glucose_variability, 1)
+    }
 
 # =========================================================
-# SUPPLY CHAIN MODEL
+# METABOLIC STATE ENGINE
+# =========================================================
+def metabolic_state(user, wear):
+    score = 100
+    flags = []
+
+    if wear["sleep_debt"] > 1.5:
+        score -= 15
+        flags.append("Sleep Debt")
+
+    if wear["stress"] > 7:
+        score -= 10
+        flags.append("High Stress")
+
+    if wear["activity_steps"] < 4000:
+        score -= 10
+        flags.append("Low Activity")
+
+    if wear["recovery"] < 50:
+        score -= 20
+        flags.append("Low Recovery")
+
+    if wear["glucose_variability"] > 35:
+        score -= 15
+        flags.append("Glucose Instability")
+
+    return {
+        "state_score": max(0, score),
+        "state_flags": flags,
+        "state_label": "OPTIMAL" if score > 80 else "STABLE" if score > 60 else "DYSREGULATED"
+    }
+
+# =========================================================
+# SUPPLY CHAIN SIMULATION
 # =========================================================
 @dataclass
 class SupplyTelemetry:
@@ -127,218 +141,118 @@ def fetch_supply_chain_data(food):
     )
 
 # =========================================================
-# USER ENGINE
-# =========================================================
-def create_user(*args):
-    uid = len(st.session_state.users) + 1
-    weight = args[2]
-    height = args[3]
-
-    bmi = round(weight / (height ** 2), 1)
-
-    st.session_state.users.append({
-        "id": uid,
-        "age": args[0],
-        "sex": args[1],
-        "weight": weight,
-        "height": height,
-        "goal": args[4],
-        "activity": args[5],
-        "sleep": args[6],
-        "stress": args[7],
-        "diet": args[8],
-        "allergies": args[9],
-        "conditions": args[10],
-        "meds": args[11],
-        "smoking": args[12],
-        "alcohol": args[13],
-        "waist": args[14],
-        "bmi": bmi
-    })
-
-# =========================================================
-# HEALTH INSIGHTS (UPGRADED MODEL)
+# HEALTH ENGINE (UPGRADED)
 # =========================================================
 def health_score(user, wear):
+    meta = metabolic_state(user, wear)
+
     score = 0
     reasons = []
 
-    score += max(0, user["bmi"] - 24) * 0.7
-    score += max(0, user["waist"] - 90) * 0.1
-    score += max(0, user["stress"] - 6) * 0.8
+    if user["bmi"] > 27:
+        score += 2
+        reasons.append("Elevated BMI")
 
-    score += max(0, 6 - wear["sleep"]) * 2
-    score += max(0, 50 - wear["recovery"]) * 0.05
-    score += max(0, wear["glucose_variability"] - 25) * 0.3
+    if user.get("waist_circumference", 0) > 102:
+        score += 2
+        reasons.append("Central adiposity risk")
 
-    if score > 12:
-        risk = "HIGH"
-    elif score > 6:
-        risk = "MODERATE"
-    else:
-        risk = "LOW"
+    if wear["recovery"] < 50:
+        score += 2
+        reasons.append("Low recovery capacity")
 
-    return risk, round(score,1)
+    if meta["state_score"] < 60:
+        score += 3
+        reasons.extend(meta["state_flags"])
 
-# =========================================================
-# WEARABLE
-# =========================================================
-def wearable(uid):
-    rng = np.random.default_rng(uid)
-    return {
-        "sleep": round(rng.uniform(5,8),2),
-        "recovery": int(rng.uniform(30,95)),
-        "glucose_variability": round(rng.uniform(10,40),1)
-    }
+    risk = "LOW" if score < 3 else "MODERATE" if score < 6 else "HIGH"
+
+    return risk, reasons, meta
 
 # =========================================================
 # NUTRIENT ENGINE
 # =========================================================
-def adjusted_nutrients(food, t):
+def adjusted_nutrients(food, telemetry):
     base = BASE_NUTRITION[food]
     adjusted = {}
 
-    for n, v in base.items():
+    for nutrient, value in base.items():
         degradation = (
-            t.avg_transport_temp/10 * 0.2 +
-            t.transport_delay_hours/24 * 0.15 +
-            t.processing_level * 0.25
+            telemetry.avg_transport_temp / 10 * 0.2 +
+            telemetry.transport_delay_hours / 24 * 0.15 +
+            telemetry.processing_level * 0.25
         )
 
         retention = max(0.2, 1 - degradation)
 
-        adjusted[n] = {
-            "value": round(v * retention, 1),
-            "retention": round(retention * 100, 1)
+        adjusted[nutrient] = {
+            "remaining": round(value * retention, 1),
+            "retention_percent": round(retention * 100, 1)
         }
 
     return adjusted
 
 # =========================================================
-# INTEGRITY SCORE
-# =========================================================
-def integrity_score(t):
-    score = 100
-    score -= t.transport_delay_hours * 0.5
-    score -= t.warehouse_days * 1.5
-    score -= t.processing_level * 20
-    score -= t.contamination_risk * 25
-    score -= t.cold_chain_breaks * 10
-    score += t.soil_quality * 10
-    score -= t.pesticide_score * 15
-    return round(max(0,min(score,100)),1)
-
-# =========================================================
-# GRADE SYSTEM
-# =========================================================
-def grade(score):
-    if score >= 85: return "A - Excellent"
-    if score >= 70: return "B - Good"
-    if score >= 55: return "C - Moderate"
-    if score >= 40: return "D - Poor"
-    return "F - Very Poor"
-
-# =========================================================
-# SUPPLY CHAIN STORY
-# =========================================================
-def supply_story(t):
-    return (
-        f"Harvested {t.harvest_date}, traveled through "
-        f"{t.transport_delay_hours}h delay, stored for "
-        f"{t.warehouse_days} days, with processing level "
-        f"{t.processing_level:.2f}. Contamination risk "
-        f"estimated at {t.contamination_risk:.2f}."
-    )
-
-# =========================================================
-# RECOMMENDATION ENGINE
+# RECOMMENDATION ENGINE (WHOLE FOOD OUTPUT)
 # =========================================================
 def food_recommendation(food, user, wear):
+    telemetry = fetch_supply_chain_data(food)
+    integrity = compute_integrity_score(telemetry)
+    nutrients = adjusted_nutrients(food, telemetry)
 
-    t = fetch_supply_chain_data(food)
-    integrity = integrity_score(t)
-    nutrients = adjusted_nutrients(food, t)
+    meta = metabolic_state(user, wear)
 
-    nutrient_power = sum([x["value"] for x in nutrients.values()])
-
-    score = integrity * 0.5 + nutrient_power * 0.3
-
+    score = 50
     if user["goal"] in FOOD_LIBRARY[food]["goal"]:
-        score += 10
+        score += 20
 
-    if wear["recovery"] < 50:
-        score += 5
+    score += integrity * 0.3
 
-    if wear["glucose_variability"] > 30:
-        score += 5
-
-    # restriction logic
-    if user["diet"] == "vegan" and food in ["Salmon","Eggs","Chicken Breast"]:
-        score -= 100
-
-    g = grade(score)
+    explanation = (
+        f"{food} is recommended based on your current metabolic state ({meta['state_label']}). "
+        f"It has a supply chain integrity score of {integrity}/100, reflecting real-world handling conditions. "
+        f"The food experienced {telemetry.transport_delay_hours}h transport delay and "
+        f"{telemetry.avg_transport_temp}°C exposure. "
+        f"Biologically, it supports: {', '.join(FOOD_LIBRARY[food]['category'])}."
+    )
 
     return {
         "food": food,
-        "score": round(score,1),
-        "grade": g,
-        "description": FOOD_LIBRARY[food]["desc"],
+        "score": round(score, 1),
         "integrity": integrity,
-        "story": supply_story(t),
-        "nutrients": nutrients,
-        "effects": list(set([e for n in nutrients if n in NUTRIENT_EFFECTS for e in NUTRIENT_EFFECTS[n]]))
+        "recommendation": explanation
     }
-
-# =========================================================
-# RECOMMENDER
-# =========================================================
-def recommend(user, uid):
-    wear = wearable(uid)
-    recs = [food_recommendation(f, user, wear) for f in FOODS]
-    return sorted(recs, key=lambda x: x["score"], reverse=True), wear
 
 # =========================================================
 # UI
 # =========================================================
 st.title("🧠 Precision Nutrition Intelligence")
 
-page = st.sidebar.radio(
-    "Pages",
-    ["Create User", "Health Insights", "Recommendations"]
-)
+page = st.sidebar.radio("Pages", ["Create User", "Health Insights", "Recommendations"])
 
 # =========================================================
 # CREATE USER
 # =========================================================
 if page == "Create User":
 
-    st.subheader("User Profile")
+    st.subheader("Create Profile")
 
-    age = st.number_input("Age",18,100,30)
-    sex = st.selectbox("Sex",["Male","Female"])
-    weight = st.number_input("Weight",40.0,200.0,70.0)
-    height = st.number_input("Height",1.2,2.5,1.7)
-    waist = st.number_input("Waist",40,200,85)
+    weight = st.number_input("Weight", 40.0, 200.0, 75.0)
+    height = st.number_input("Height", 1.2, 2.5, 1.75)
+    waist = st.number_input("Waist (cm)", 50, 200, 90)
+    goal = st.selectbox("Goal", ["fitness", "fat_loss", "glucose_control"])
 
-    goal = st.selectbox("Goal",["fitness","fat_loss","glucose_control"])
-    activity = st.selectbox("Activity",["low","moderate","high"])
-
-    sleep = st.slider("Sleep",3,12,7)
-    stress = st.slider("Stress",1,10,5)
-
-    diet = st.selectbox("Diet",["omnivore","vegetarian","vegan","keto"])
-
-    allergies = st.text_area("Allergies")
-    conditions = st.text_area("Medical Conditions")
-    meds = st.text_area("Medications")
-
-    smoking = st.selectbox("Smoking",["No","Yes"])
-    alcohol = st.selectbox("Alcohol",["No","Occasional","Frequent"])
-
-    if st.button("Create User"):
-        create_user(age,sex,weight,height,goal,activity,sleep,stress,
-                    diet,allergies,conditions,meds,smoking,alcohol,waist)
-        st.success("User Created")
+    if st.button("Create"):
+        uid = len(st.session_state.users) + 1
+        st.session_state.users.append({
+            "id": uid,
+            "weight": weight,
+            "height": height,
+            "bmi": round(weight / (height ** 2), 1),
+            "goal": goal,
+            "waist_circumference": waist
+        })
+        st.success("User created")
 
 # =========================================================
 # HEALTH INSIGHTS
@@ -349,14 +263,16 @@ elif page == "Health Insights":
     if users.empty:
         st.stop()
 
-    uid = st.selectbox("User",users.id)
-    user = users[users.id==uid].iloc[0].to_dict()
+    uid = st.selectbox("User", users.id)
+    user = users[users.id == uid].iloc[0].to_dict()
 
-    wear = wearable(uid)
-    risk, score = health_score(user, wear)
+    wear = wearable_stream(uid)
+    risk, reasons, meta = health_score(user, wear)
 
-    st.metric("Risk Level", risk)
-    st.metric("Health Score", score)
+    st.metric("Risk", risk)
+    st.metric("Metabolic State", meta["state_label"])
+    st.write(reasons)
+    st.json(wear)
 
 # =========================================================
 # RECOMMENDATIONS
@@ -367,28 +283,17 @@ elif page == "Recommendations":
     if users.empty:
         st.stop()
 
-    uid = st.selectbox("User",users.id)
-    user = users[users.id==uid].iloc[0].to_dict()
+    uid = st.selectbox("User", users.id)
+    user = users[users.id == uid].iloc[0].to_dict()
 
-    recs, wear = recommend(user, uid)
+    wear = wearable_stream(uid)
 
-    st.subheader("Wearable State")
-    st.write(wear)
+    recs = [food_recommendation(f, user, wear) for f in FOODS]
+    recs = sorted(recs, key=lambda x: x["score"], reverse=True)
 
     for r in recs:
-
-        st.markdown("---")
-        st.subheader(f"{r['food']} — Grade {r['grade']}")
-
-        st.write(r["description"])
-        st.write("Integrity:", r["integrity"])
-        st.write(r["story"])
-
-        st.write("Effects:")
-        for e in r["effects"]:
-            st.write("•", e)
-
-        st.write("Nutrients:")
-        for n,v in r["nutrients"].items():
-            st.write(f"{n}: {v['value']} ({v['retention']}%)")
-            st.progress(v["retention"]/100)
+        with st.container(border=True):
+            st.subheader(r["food"])
+            st.write(r["recommendation"])
+            st.metric("Score", r["score"])
+            st.metric("Integrity", r["integrity"])
