@@ -33,7 +33,7 @@ def gen_wearable(days=7, seed=42):
     return pd.DataFrame(rows)
 
 # =========================================================
-# LIFESTYLE INFERENCE (WEARABLE-BASED)
+# LIFESTYLE INFERENCE
 # =========================================================
 def infer_lifestyle_from_wearable(df):
     avg_hrv = df["HRV"].mean()
@@ -62,7 +62,7 @@ def infer_lifestyle_from_wearable(df):
     }
 
 # =========================================================
-# FOOD CATALOG (LARGE SCALE)
+# FOOD CATALOG
 # =========================================================
 FOOD_CATALOG = [
     "Salmon","Oats","Blueberries","Lentils","Spinach",
@@ -76,7 +76,7 @@ FOOD_CATALOG = [
 # SUPPLY CHAIN BULK ENGINE
 # =========================================================
 def simulate_supply_detailed_bulk(food_list):
-    all_data = {}
+    all_data = []
 
     for food in food_list:
         seed = int(hashlib.md5(food.encode()).hexdigest(), 16) % 10**6
@@ -98,7 +98,6 @@ def simulate_supply_detailed_bulk(food_list):
         }
 
         state = nutrients.copy()
-        rows = []
 
         for stage in stages:
             temp = np.random.uniform(2, 35)
@@ -110,7 +109,7 @@ def simulate_supply_detailed_bulk(food_list):
             for k in state:
                 state[k] *= decay
 
-            rows.append({
+            all_data.append({
                 "Food": food,
                 "Stage": stage,
                 "Temperature": round(temp, 1),
@@ -120,12 +119,10 @@ def simulate_supply_detailed_bulk(food_list):
                 "Polyphenols": round(state["Polyphenols"], 1)
             })
 
-        all_data[food] = pd.DataFrame(rows)
-
-    return pd.concat(all_data.values(), ignore_index=True)
+    return pd.DataFrame(all_data)
 
 # =========================================================
-# DUBAI RETAIL INTELLIGENCE (BULK)
+# DUBAI RETAIL INTELLIGENCE
 # =========================================================
 def dubai_store_intelligence_bulk(food_list):
     stores = [
@@ -154,13 +151,11 @@ def dubai_store_intelligence_bulk(food_list):
 # SUPPLY CHAIN STORY ENGINE
 # =========================================================
 def build_story(food, df):
-    story = [f"🌱 {food} originates from controlled agricultural systems."]
-
-    for _, r in df.iterrows():
-        story.append(f"{r['Stage']} affects nutrient stability through environmental exposure.")
-
-    story.append("🥗 Final nutrition is cumulative across all stages.")
-    return "\n".join(story)
+    return "\n".join(
+        [f"{food} originates from controlled agriculture."]
+        + [f"{r['Stage']} influences nutrient stability." for _, r in df.iterrows()]
+        + ["Final nutrition depends on full chain integrity."]
+    )
 
 # =========================================================
 # HEALTH ENGINE
@@ -172,57 +167,54 @@ def detect_condition(user):
         return "inflammation"
     return "general_fitness"
 
-def health_engine(food, condition):
-    if condition == "prediabetic_risk":
-        return f"{food} improves insulin sensitivity and reduces glucose spikes."
-    if condition == "inflammation":
-        return f"{food} reduces inflammation and supports recovery."
-    return f"{food} supports metabolic performance."
-
 # =========================================================
-# MEAL ENGINE
+# VISUAL LIFESTYLE DASHBOARD (FIXED)
 # =========================================================
-def meal_plan(condition):
+def render_lifestyle_dashboard(lifestyle):
 
-    base = {
-        "general_fitness": [
-            ("🍳 Balanced Breakfast", "Eggs + oats + avocado"),
-            ("🥗 Performance Lunch", "Chicken + rice + vegetables"),
-            ("🍲 Light Dinner", "Fish + greens + olive oil")
-        ],
-        "prediabetic_risk": [
-            ("🥣 Glycemic Breakfast", "Oats + chia + yogurt + blueberries"),
-            ("🥗 Metabolic Lunch", "Chicken + quinoa + spinach"),
-            ("🍲 Low-GI Dinner", "Salmon + avocado + greens")
-        ],
-        "inflammation": [
-            ("🥤 Anti-Inflammatory Breakfast", "Spinach smoothie + berries"),
-            ("🍛 Recovery Lunch", "Salmon + brown rice + broccoli"),
-            ("🍵 Healing Dinner", "Bone broth + lentils + garlic")
+    st.subheader("🧠 Lifestyle Intelligence Dashboard")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric("Sleep", lifestyle["sleep_quality"].upper(), f"{round(lifestyle['avg_sleep'],1)}%")
+    col2.metric("Stress", lifestyle["stress_level"].upper(), f"HRV {round(lifestyle['avg_hrv'],1)}")
+    col3.metric("Activity", lifestyle["activity_level"].upper(), f"{round(lifestyle['avg_steps'],0)} steps")
+    col4.metric("Load", lifestyle["training_load"].upper(), f"{round(lifestyle['avg_strain'],1)}")
+
+    st.subheader("📊 Physiological Signature")
+
+    df = pd.DataFrame({
+        "Metric": ["HRV","Sleep","Steps","Strain"],
+        "Value": [
+            lifestyle["avg_hrv"],
+            lifestyle["avg_sleep"],
+            lifestyle["avg_steps"]/100,
+            lifestyle["avg_strain"]*5
         ]
-    }
+    })
 
-    return base[condition]
+    st.bar_chart(df.set_index("Metric"))
 
-# =========================================================
-# DUBAI STORES
-# =========================================================
-def dubai_stores():
-    return pd.DataFrame([
-        {"Store":"Carrefour UAE","Type":"Hypermarket","Quality":"Medium"},
-        {"Store":"Spinneys Dubai","Type":"Premium","Quality":"High"},
-        {"Store":"Waitrose Dubai","Type":"Imported","Quality":"Very High"}
-    ])
+    st.subheader("🧬 Interpretation")
+
+    if lifestyle["stress_level"] == "high":
+        st.error("High stress load detected → recovery nutrition required.")
+    elif lifestyle["stress_level"] == "medium":
+        st.warning("Moderate stress load → balance recovery and performance.")
+    else:
+        st.success("Stable stress profile.")
+
+    if lifestyle["sleep_quality"] == "poor":
+        st.warning("Sleep deficit impacting metabolic recovery.")
+    elif lifestyle["sleep_quality"] == "good":
+        st.success("Sleep supports recovery and hormone balance.")
 
 # =========================================================
 # UI
 # =========================================================
 st.title("🥗 Precision Nutrition Intelligence System")
 
-page = st.sidebar.radio(
-    "Navigation",
-    ["1️⃣ Profile","2️⃣ Supply Chain","3️⃣ Meals"]
-)
+page = st.sidebar.radio("Navigation", ["1️⃣ Profile","2️⃣ Supply Chain","3️⃣ Meals"])
 
 # =========================================================
 # PAGE 1
@@ -259,8 +251,8 @@ if page.startswith("1️⃣"):
         st.subheader("Wearable Data")
         st.dataframe(w)
 
-        st.subheader("Inferred Lifestyle")
-        st.json(lifestyle)
+        # ✅ FIXED: VISUAL DASHBOARD (NO JSON)
+        render_lifestyle_dashboard(lifestyle)
 
 # =========================================================
 # PAGE 2
@@ -287,9 +279,6 @@ elif page.startswith("2️⃣"):
     st.subheader("Dubai Retail Intelligence")
     st.dataframe(dubai_store_intelligence_bulk(foods))
 
-    st.subheader("System Insight")
-    st.write("Multi-food supply chain + retail intelligence model active.")
-
 # =========================================================
 # PAGE 3
 # =========================================================
@@ -302,15 +291,14 @@ elif page.startswith("3️⃣"):
 
     condition = detect_condition(user)
 
-    st.header("🧠 Whole Meal Intelligence")
+    st.header("🧠 Nutrition System Output")
 
-    meals = meal_plan(condition)
+    if condition == "prediabetic_risk":
+        st.warning("Metabolic risk detected → glycemic control diet required.")
+    elif condition == "inflammation":
+        st.error("Inflammatory profile detected → recovery nutrition required.")
+    else:
+        st.success("Stable metabolic profile.")
 
-    st.subheader(f"Condition: {condition}")
-
-    for m in meals:
-        st.markdown(f"## {m[0]}")
-        st.write(m[1])
-        st.divider()
-
-    st.success("System is now a full food intelligence + physiology engine.")
+    st.subheader("System Ready")
+    st.write("Nutrition + physiology + supply chain intelligence active.")
