@@ -4,13 +4,13 @@ import numpy as np
 import datetime
 import hashlib
 
-st.set_page_config(page_title="Precision Nutrition Intelligence System", layout="centered")
+st.set_page_config(page_title="Precision Nutrition Digital Twin", layout="centered")
 
 # =========================================================
 # UTILITIES
 # =========================================================
-def roundf(x, d=1):
-    return round(float(x), d)
+def clamp(x, minv=0, maxv=100):
+    return max(minv, min(x, maxv))
 
 # =========================================================
 # WEARABLE SIMULATION
@@ -19,202 +19,112 @@ def gen_wearable(days=7, seed=42):
     np.random.seed(seed)
     base = datetime.date.today()
 
-    rows = []
+    data = []
     for i in range(days):
-        rows.append({
-            "date": base - datetime.timedelta(days=i),
-            "steps": np.random.randint(3000, 13000),
-            "strain": roundf(np.random.uniform(5, 18)),
-            "HRV": np.random.randint(30, 95),
-            "sleep_eff": roundf(np.random.uniform(60, 98)),
-            "resting_hr": np.random.randint(55, 85)
+        data.append({
+            "day": i,
+            "HRV": np.random.randint(30, 90),
+            "sleep": np.random.uniform(60, 98),
+            "strain": np.random.uniform(5, 18),
+            "steps": np.random.randint(3000, 12000)
         })
-
-    return pd.DataFrame(rows)
+    return pd.DataFrame(data)
 
 # =========================================================
 # LIFESTYLE INFERENCE
 # =========================================================
-def infer_lifestyle_from_wearable(df):
-    avg_hrv = df["HRV"].mean()
-    avg_strain = df["strain"].mean()
-    avg_sleep = df["sleep_eff"].mean()
-    avg_steps = df["steps"].mean()
-
-    sleep_quality = "good" if avg_sleep >= 85 else "average" if avg_sleep >= 70 else "poor"
-
-    stress_score = (100 - avg_hrv) * 0.6 + avg_strain * 2
-    stress_level = "low" if stress_score < 40 else "medium" if stress_score < 70 else "high"
-
-    activity_level = "high" if avg_steps >= 9000 else "moderate" if avg_steps >= 5000 else "low"
-
-    training_load = "high" if avg_strain >= 14 else "moderate" if avg_strain >= 8 else "low"
-
+def infer_state(df):
     return {
-        "sleep_quality": sleep_quality,
-        "stress_level": stress_level,
-        "activity_level": activity_level,
-        "training_load": training_load,
-        "avg_hrv": avg_hrv,
-        "avg_strain": avg_strain,
-        "avg_sleep": avg_sleep,
-        "avg_steps": avg_steps
+        "hrv": df["HRV"].mean(),
+        "sleep": df["sleep"].mean(),
+        "strain": df["strain"].mean(),
+        "steps": df["steps"].mean()
     }
 
 # =========================================================
-# FOOD CATALOG
+# INITIAL HEALTH STATE
 # =========================================================
-FOOD_CATALOG = [
-    "Salmon","Oats","Blueberries","Lentils","Spinach",
-    "Chicken Breast","Eggs","Brown Rice","Quinoa",
-    "Broccoli","Avocado","Greek Yogurt","Almonds",
-    "Walnuts","Sweet Potato","Tomatoes","Garlic",
-    "Ginger","Olive Oil","Bananas","Apples"
-]
+def initial_health(user, state):
 
-# =========================================================
-# SUPPLY CHAIN BULK ENGINE
-# =========================================================
-def simulate_supply_detailed_bulk(food_list):
-    all_data = []
+    bmi = user["BMI"]
 
-    for food in food_list:
-        seed = int(hashlib.md5(food.encode()).hexdigest(), 16) % 10**6
-        np.random.seed(seed)
-
-        stages = [
-            "Farm Cultivation",
-            "Harvest",
-            "Post-Harvest Handling",
-            "Cold Storage",
-            "Transportation",
-            "Retail Shelf"
-        ]
-
-        nutrients = {
-            "Vitamin C": np.random.uniform(40, 100),
-            "Protein": np.random.uniform(5, 30),
-            "Polyphenols": np.random.uniform(50, 120)
-        }
-
-        state = nutrients.copy()
-
-        for stage in stages:
-            temp = np.random.uniform(2, 35)
-            humidity = np.random.uniform(40, 95)
-            days = np.random.uniform(0.5, 5)
-
-            decay = np.exp(-0.05 * days * (temp / 25))
-
-            for k in state:
-                state[k] *= decay
-
-            all_data.append({
-                "Food": food,
-                "Stage": stage,
-                "Temperature": round(temp, 1),
-                "Humidity": round(humidity, 1),
-                "Vitamin C": round(state["Vitamin C"], 1),
-                "Protein": round(state["Protein"], 1),
-                "Polyphenols": round(state["Polyphenols"], 1)
-            })
-
-    return pd.DataFrame(all_data)
+    return {
+        "energy": 70,
+        "inflammation": clamp(50 + state["strain"] * 2),
+        "metabolic_health": clamp(100 - (bmi - 22) * 5),
+        "recovery": clamp(state["sleep"]),
+        "stress_load": clamp(100 - state["hrv"])
+    }
 
 # =========================================================
-# DUBAI RETAIL INTELLIGENCE
+# FOOD EFFECT MODEL (CORE DIGITAL TWIN LOGIC)
 # =========================================================
-def dubai_store_intelligence_bulk(food_list):
-    stores = [
-        "Carrefour UAE",
-        "Spinneys Dubai",
-        "Waitrose Dubai",
-        "Union Coop",
-        "Al Maya Supermarket",
-        "Organic Foods & Cafe"
-    ]
+def apply_food_effects(health, food):
 
-    rows = []
+    effects = {
+        "Salmon": {"inflammation": -6, "recovery": +5},
+        "Oats": {"metabolic_health": +6, "stress_load": -3},
+        "Blueberries": {"inflammation": -4, "metabolic_health": +3},
+        "Lentils": {"metabolic_health": +5, "energy": +4},
+        "Spinach": {"recovery": +4, "inflammation": -3},
+        "Eggs": {"energy": +6, "recovery": +3},
+        "Avocado": {"stress_load": -4, "recovery": +3}
+    }
 
-    for food in food_list:
-        for store in stores:
-            rows.append({
-                "Food": food,
-                "Store": store,
-                "Availability": np.random.choice(["High","Medium","Low"], p=[0.6,0.3,0.1]),
-                "Quality": np.random.choice(["Premium","Standard","Organic"], p=[0.4,0.4,0.2])
-            })
+    if food not in effects:
+        return health
 
-    return pd.DataFrame(rows)
+    for k, v in effects[food].items():
+        health[k] = clamp(health[k] + v)
+
+    return health
 
 # =========================================================
-# SUPPLY CHAIN STORY ENGINE
+# DIGITAL TWIN SIMULATION ENGINE
 # =========================================================
-def build_story(food, df):
-    return "\n".join(
-        [f"{food} originates from controlled agriculture."]
-        + [f"{r['Stage']} influences nutrient stability." for _, r in df.iterrows()]
-        + ["Final nutrition depends on full chain integrity."]
-    )
+def run_digital_twin(user, state, foods, days=7):
 
-# =========================================================
-# HEALTH ENGINE
-# =========================================================
-def detect_condition(user):
-    if user["BMI"] > 28:
-        return "prediabetic_risk"
-    if user["stress_level"] == "high" and user["sleep_quality"] == "poor":
-        return "inflammation"
-    return "general_fitness"
+    timeline = []
 
-# =========================================================
-# VISUAL LIFESTYLE DASHBOARD (FIXED)
-# =========================================================
-def render_lifestyle_dashboard(lifestyle):
+    health = initial_health(user, state)
 
-    st.subheader("🧠 Lifestyle Intelligence Dashboard")
+    for d in range(days):
 
-    col1, col2, col3, col4 = st.columns(4)
+        # daily decay (natural physiology drift)
+        health["energy"] = clamp(health["energy"] - 1 + np.random.randn())
+        health["stress_load"] = clamp(health["stress_load"] + 1)
+        health["recovery"] = clamp(health["recovery"] - 0.5)
 
-    col1.metric("Sleep", lifestyle["sleep_quality"].upper(), f"{round(lifestyle['avg_sleep'],1)}%")
-    col2.metric("Stress", lifestyle["stress_level"].upper(), f"HRV {round(lifestyle['avg_hrv'],1)}")
-    col3.metric("Activity", lifestyle["activity_level"].upper(), f"{round(lifestyle['avg_steps'],0)} steps")
-    col4.metric("Load", lifestyle["training_load"].upper(), f"{round(lifestyle['avg_strain'],1)}")
+        # apply foods daily
+        for f in foods:
+            health = apply_food_effects(health, f)
 
-    st.subheader("📊 Physiological Signature")
+        # compute risk score
+        risk = (
+            0.3 * health["stress_load"] +
+            0.3 * (100 - health["recovery"]) +
+            0.2 * (100 - health["metabolic_health"]) +
+            0.2 * health["inflammation"]
+        )
 
-    df = pd.DataFrame({
-        "Metric": ["HRV","Sleep","Steps","Strain"],
-        "Value": [
-            lifestyle["avg_hrv"],
-            lifestyle["avg_sleep"],
-            lifestyle["avg_steps"]/100,
-            lifestyle["avg_strain"]*5
-        ]
-    })
+        timeline.append({
+            "Day": d,
+            "Energy": health["energy"],
+            "Stress": health["stress_load"],
+            "Recovery": health["recovery"],
+            "Inflammation": health["inflammation"],
+            "Metabolic": health["metabolic_health"],
+            "RiskScore": risk
+        })
 
-    st.bar_chart(df.set_index("Metric"))
-
-    st.subheader("🧬 Interpretation")
-
-    if lifestyle["stress_level"] == "high":
-        st.error("High stress load detected → recovery nutrition required.")
-    elif lifestyle["stress_level"] == "medium":
-        st.warning("Moderate stress load → balance recovery and performance.")
-    else:
-        st.success("Stable stress profile.")
-
-    if lifestyle["sleep_quality"] == "poor":
-        st.warning("Sleep deficit impacting metabolic recovery.")
-    elif lifestyle["sleep_quality"] == "good":
-        st.success("Sleep supports recovery and hormone balance.")
+    return pd.DataFrame(timeline)
 
 # =========================================================
 # UI
 # =========================================================
-st.title("🥗 Precision Nutrition Intelligence System")
+st.title("🧠 Precision Nutrition Digital Twin Engine")
 
-page = st.sidebar.radio("Navigation", ["1️⃣ Profile","2️⃣ Supply Chain","3️⃣ Meals"])
+page = st.sidebar.radio("Navigation", ["1️⃣ Profile", "2️⃣ Digital Twin Simulation"])
 
 # =========================================================
 # PAGE 1
@@ -223,82 +133,62 @@ if page.startswith("1️⃣"):
     st.header("User Profile")
 
     with st.form("profile"):
-        age = st.number_input("Age",18,80,30)
-        sex = st.selectbox("Sex",["Male","Female"])
-        height = st.number_input("Height (cm)",120,220,170)
-        weight = st.number_input("Weight (kg)",40,200,70)
-        goal = st.selectbox("Goal",["weight_loss","energy_boost","glucose_control"])
-        submit = st.form_submit_button("Generate")
+        age = st.number_input("Age", 18, 80, 30)
+        weight = st.number_input("Weight (kg)", 40, 200, 70)
+        height = st.number_input("Height (cm)", 120, 220, 170)
+        submit = st.form_submit_button("Generate Twin")
 
     if submit:
-        w = gen_wearable()
-        lifestyle = infer_lifestyle_from_wearable(w)
+        bmi = weight / ((height / 100) ** 2)
 
-        BMI = weight / ((height/100)**2)
+        wearable = gen_wearable()
+        state = infer_state(wearable)
 
         user = {
             "age": age,
-            "sex": sex,
-            "height": height,
-            "weight": weight,
-            "BMI": BMI,
-            "goal": goal,
-            **lifestyle
+            "BMI": bmi
         }
 
         st.session_state["user"] = user
+        st.session_state["state"] = state
 
-        st.subheader("Wearable Data")
-        st.dataframe(w)
+        st.subheader("Wearable Snapshot")
+        st.dataframe(wearable)
 
-        # ✅ FIXED: VISUAL DASHBOARD (NO JSON)
-        render_lifestyle_dashboard(lifestyle)
+        st.subheader("Inferred State")
+        st.json(state)
 
 # =========================================================
 # PAGE 2
 # =========================================================
 elif page.startswith("2️⃣"):
-    st.header("🔬 Multi-Food Supply Chain Intelligence")
+    st.header("🧬 Digital Twin Simulation")
+
+    user = st.session_state.get("user")
+    state = st.session_state.get("state")
+
+    if not user:
+        st.warning("Create profile first")
+        st.stop()
 
     foods = st.multiselect(
-        "Select Foods",
-        FOOD_CATALOG,
+        "Select Nutrition Plan",
+        ["Salmon","Oats","Blueberries","Lentils","Spinach","Eggs","Avocado"],
         default=["Salmon","Oats","Blueberries"]
     )
 
-    df = simulate_supply_detailed_bulk(foods)
+    st.subheader("Running Physiological Simulation...")
 
-    st.subheader("Supply Chain Data")
-    st.dataframe(df)
+    df = run_digital_twin(user, state, foods, days=10)
 
-    st.subheader("Nutrient Trends")
+    st.subheader("📈 Physiological Timeline")
+    st.line_chart(df.set_index("Day")[["Energy","Stress","Recovery","Inflammation","Metabolic"]])
 
-    for n in ["Vitamin C","Protein","Polyphenols"]:
-        st.line_chart(df.pivot_table(index="Stage", columns="Food", values=n))
+    st.subheader("⚠️ Risk Trajectory")
+    st.line_chart(df.set_index("Day")[["RiskScore"]])
 
-    st.subheader("Dubai Retail Intelligence")
-    st.dataframe(dubai_store_intelligence_bulk(foods))
-
-# =========================================================
-# PAGE 3
-# =========================================================
-elif page.startswith("3️⃣"):
-    user = st.session_state.get("user")
-
-    if not user:
-        st.warning("Complete profile first")
-        st.stop()
-
-    condition = detect_condition(user)
-
-    st.header("🧠 Nutrition System Output")
-
-    if condition == "prediabetic_risk":
-        st.warning("Metabolic risk detected → glycemic control diet required.")
-    elif condition == "inflammation":
-        st.error("Inflammatory profile detected → recovery nutrition required.")
+    st.subheader("Insight")
+    if df["RiskScore"].iloc[-1] < df["RiskScore"].iloc[0]:
+        st.success("Your nutrition plan improves physiological stability over time.")
     else:
-        st.success("Stable metabolic profile.")
-
-    st.subheader("System Ready")
-    st.write("Nutrition + physiology + supply chain intelligence active.")
+        st.warning("Your current nutrition pattern increases system stress.")
