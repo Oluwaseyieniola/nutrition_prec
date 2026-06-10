@@ -3,204 +3,213 @@ import pandas as pd
 import numpy as np
 import datetime
 import hashlib
-import requests
-import os
 
-st.set_page_config(page_title="Food Intelligence System", layout="wide")
+st.set_page_config(page_title="Precision Nutrition Unified MVP", layout="centered")
 
-# =========================================================
-# PHYSIOLOGY SIMULATOR (REPLACES WHOOP/FITBIT)
-# =========================================================
-class PhysiologySimulator:
-    def fetch_data(self, user_id=None, days=7):
+# =====================================================================
+# UTILITIES
+# =====================================================================
+def roundf(x, d=1): return round(float(x), d)
 
-        seed = user_id or 42
-        np.random.seed(seed)
+# ---------- wearable simulation ----------
+def gen_wearable(days=7, seed=42):
+    np.random.seed(seed)
+    base = datetime.date.today()
+    rows = []
+    for i in range(days):
+        rows.append({
+            "date": base - datetime.timedelta(days=i),
+            "steps": np.random.randint(3500, 12500),
+            "strain": roundf(np.random.uniform(5, 18)),
+            "HRV": np.random.randint(35, 90),
+            "sleep_eff": roundf(np.random.uniform(70, 98)),
+            "protein": np.random.randint(55, 160),
+            "meal_timing": roundf(np.random.uniform(0.6, 1.0), 2)
+        })
+    return pd.DataFrame(rows)
 
-        base_hrv = np.random.randint(45, 85)
-        base_sleep = np.random.uniform(5.5, 8.2)
-        base_strain = np.random.uniform(6, 16)
+# =====================================================================
+# 🔬 DETAILED SUPPLY CHAIN MODEL
+# =====================================================================
+def simulate_supply_detailed(food):
+    seed = int(hashlib.md5(food.encode()).hexdigest(), 16) % 10**6
+    np.random.seed(seed)
 
-        rows = []
+    stages = [
+        "Farm Cultivation",
+        "Harvest",
+        "Post-Harvest Handling",
+        "Cold Storage",
+        "Transportation",
+        "Retail Shelf"
+    ]
 
-        for i in range(days):
-            recovery_signal = np.clip(np.random.normal(65, 18), 10, 100)
-
-            rows.append({
-                "date": datetime.date.today() - datetime.timedelta(i),
-
-                "hrv": int(np.random.normal(base_hrv, 6)),
-                "sleep_hours": round(np.random.normal(base_sleep, 0.8), 2),
-                "strain": round(np.random.normal(base_strain, 2), 1),
-                "recovery": int(recovery_signal),
-
-                "energy_state": np.random.choice(
-                    ["Low", "Moderate", "High"],
-                    p=[0.3, 0.5, 0.2]
-                ),
-
-                "stress_state": np.random.choice(
-                    ["Calm", "Elevated", "High"],
-                    p=[0.4, 0.4, 0.2]
-                ),
-
-                "readiness": int(np.clip(recovery_signal - np.random.randint(10, 30), 0, 100))
-            })
-
-        return pd.DataFrame(rows)
-
-
-def get_provider():
-    return PhysiologySimulator()
-
-
-# =========================================================
-# CORE ENGINE
-# =========================================================
-def aggregate_wearable(df):
-    return {
-        "avg_hrv": int(df["hrv"].mean()),
-        "avg_sleep": round(df["sleep_hours"].mean(), 2),
-        "avg_strain": round(df["strain"].mean(), 1),
-        "avg_recovery": int(df["recovery"].mean()),
+    base_nutrients = {
+        "Vitamin C": np.random.uniform(40, 100),
+        "Protein": np.random.uniform(5, 30),
+        "Polyphenols": np.random.uniform(50, 120)
     }
 
+    nutrient_state = base_nutrients.copy()
+    data = []
 
-def calculate_bmi(w, h):
-    return round(w / (h ** 2), 1)
+    for stage in stages:
+        temp = np.random.uniform(2, 35)
+        humidity = np.random.uniform(40, 95)
+        days = np.random.uniform(0.5, 5)
 
+        # exponential decay
+        decay_factor = np.exp(-0.05 * days * (temp / 25))
 
-def estimate_metabolic_status(user):
-    score = 0
-    if user["bmi"] > 27:
-        score += 2
-    if user["sleep_hours"] < 6:
-        score += 2
-    if user["strain"] > 14:
-        score += 2
-    if user["recovery"] < 50:
-        score += 1
+        for k in nutrient_state:
+            nutrient_state[k] *= decay_factor
 
-    return "high" if score >= 5 else "moderate" if score >= 3 else "low"
+        data.append({
+            "Stage": stage,
+            "Temperature (°C)": round(temp, 1),
+            "Humidity (%)": round(humidity, 1),
+            "Duration (days)": round(days, 1),
+            "Vitamin C": round(nutrient_state["Vitamin C"], 1),
+            "Protein": round(nutrient_state["Protein"], 1),
+            "Polyphenols": round(nutrient_state["Polyphenols"], 1)
+        })
 
+    return pd.DataFrame(data)
 
-# =========================================================
-# USER CREATION
-# =========================================================
-def create_user(w, h, goal):
+# =====================================================================
+# 🧠 BIOLOGICAL MAPPING
+# =====================================================================
+bio_map = {
+    "Vitamin C": ("Collagen synthesis", "Reduces pain & inflammation, supports recovery"),
+    "Protein": ("Muscle protein synthesis", "Builds muscle and repairs tissue"),
+    "Polyphenols": ("Antioxidant + insulin regulation", "Improves insulin sensitivity")
+}
 
-    user_id = len(st.session_state["users"]) + 1
-
-    provider = get_provider()
-    df = provider.fetch_data(user_id=user_id, days=7)
-
-    m = aggregate_wearable(df)
-
-    user = {
-        "id": user_id,
-        "weight_kg": w,
-        "height_m": h,
-        "bmi": calculate_bmi(w, h),
-
-        "sleep_hours": m["avg_sleep"],
-        "hrv": m["avg_hrv"],
-        "recovery": m["avg_recovery"],
-        "strain": m["avg_strain"],
-
-        "goal": goal,
-    }
-
-    st.session_state["users"].append(user)
-    st.session_state[f"wearable_{user_id}"] = df
-
-
-# =========================================================
-# STATE INTERPRETATION LAYER (IMPORTANT UX SHIFT)
-# =========================================================
-def interpret_body_state(row):
-
-    if row["recovery"] > 75:
-        return "🟢 Fully recovered — high performance readiness"
-    elif row["recovery"] > 50:
-        return "🟡 Moderate recovery — stable but not optimal"
+# =====================================================================
+# 🧬 CONDITION DETECTION
+# =====================================================================
+def detect_condition(user):
+    if user["goal"] == "glucose_control" or user["BMI"] > 28:
+        return "prediabetic_risk"
+    elif user["strain"] > 14 and user["sleep"] < 6:
+        return "inflammation"
     else:
-        return "🔴 High fatigue — prioritize recovery"
+        return "general_fitness"
 
+condition_protocols = {
+    "prediabetic_risk": {
+        "focus": "Improve insulin sensitivity",
+        "foods": ["Blueberries", "Oats", "Lentils"]
+    },
+    "inflammation": {
+        "focus": "Reduce inflammation & pain",
+        "foods": ["Salmon", "Spinach", "Blueberries"]
+    },
+    "general_fitness": {
+        "focus": "Optimize performance & recovery",
+        "foods": ["Eggs", "Chicken Breast", "Avocado"]
+    }
+}
 
-def physiology_context(row):
+# =====================================================================
+# NAVIGATION
+# =====================================================================
+st.title("🥗 Precision Nutrition + Supply Chain Intelligence")
+page = st.sidebar.radio("Navigation",
+    ["1️⃣ Profile & Wearables","2️⃣ Supply Chain Deep Dive","3️⃣ Smart Recommendations"]
+)
 
-    if row["recovery"] < 40:
-        return "recovery_debt"
-    if row["strain"] > 14:
-        return "high_stress"
-    if row["sleep_hours"] < 6:
-        return "sleep_deficit"
-    return "balanced"
+# ---------------------------------------------------------------------
+# PAGE 1
+# ---------------------------------------------------------------------
+if page.startswith("1️⃣"):
+    st.header("User Profile and Wearable Data")
 
+    with st.form("profile"):
+        age = st.number_input("Age",18,80,35)
+        sex = st.selectbox("Sex",["F","M"])
+        BMI = st.number_input("BMI",15.0,40.0,25.0)
+        goal = st.selectbox("Goal",["weight_loss","energy_boost","glucose_control"])
+        activity = st.selectbox("Activity Level",["low","moderate","high"])
+        stress = st.selectbox("Stress",["low","medium","high"])
+        sleep = st.number_input("Sleep Hours",4.0,9.0,7.0)
+        submit = st.form_submit_button("Generate")
 
-# =========================================================
-# SESSION STATE
-# =========================================================
-if "users" not in st.session_state:
-    st.session_state["users"] = []
+    if submit:
+        w = gen_wearable()
+        st.session_state["user"] = {
+            "age":age,"sex":sex,"BMI":BMI,"goal":goal,
+            "activity":activity,"stress":stress,"sleep":sleep,
+            "HRV":int(w.HRV.mean()),"strain":float(w.strain.mean())
+        }
 
+        st.dataframe(w)
+        st.line_chart(w.set_index("date")[["steps","HRV","sleep_eff"]])
 
-# =========================================================
-# UI
-# =========================================================
-st.title("🥗 Food Intelligence System (Physiology AI Mode)")
+# ---------------------------------------------------------------------
+# PAGE 2 – 🔥 DETAILED TRACE
+# ---------------------------------------------------------------------
+elif page.startswith("2️⃣"):
+    st.header("🔬 Full Food Journey: Farm → Plate")
 
-page = st.sidebar.radio("Navigation", ["Create User", "Health Insights"])
+    food = st.selectbox("Select Food", ["Salmon","Oats","Blueberries","Lentils","Spinach"])
 
-# =========================================================
-# CREATE USER
-# =========================================================
-if page == "Create User":
+    df = simulate_supply_detailed(food)
 
-    w = st.number_input("Weight (kg)", 40.0, 150.0, 75.0)
-    h = st.number_input("Height (m)", 1.4, 2.2, 1.75)
-    goal = st.selectbox("Goal", ["fitness", "fat_loss", "glucose_control"])
+    st.subheader("📦 Supply Chain Trace Data")
+    st.dataframe(df)
 
-    if st.button("Create User"):
-        create_user(w, h, goal)
-        st.success("User created successfully")
+    st.subheader("📉 Nutrient Degradation Across Stages")
+    st.line_chart(df.set_index("Stage")[["Vitamin C","Protein","Polyphenols"]])
 
+    st.subheader("🌡 Environmental Exposure")
+    st.bar_chart(df.set_index("Stage")[["Temperature (°C)","Humidity (%)"]])
 
-# =========================================================
-# HEALTH INSIGHTS (VISUAL-FIRST UX)
-# =========================================================
-elif page == "Health Insights":
+    st.subheader("🧠 Biological Meaning")
+    for nutrient, (func, impact) in bio_map.items():
+        st.markdown(f"**{nutrient}**")
+        st.write(f"- Function: {func}")
+        st.write(f"- Effect: {impact}")
 
-    users = st.session_state.get("users", [])
+    st.session_state["last_food_trace"] = df
 
-    if not users:
-        st.warning("No users yet")
+# ---------------------------------------------------------------------
+# PAGE 3 – 🧬 INTELLIGENT RECOMMENDATIONS
+# ---------------------------------------------------------------------
+elif page.startswith("3️⃣"):
+    user = st.session_state.get("user")
+
+    if not user:
+        st.warning("Please complete Profile first")
         st.stop()
 
-    user = users[-1]
-    df = st.session_state[f"wearable_{user['id']}"]
+    condition = detect_condition(user)
+    protocol = condition_protocols[condition]
 
-    latest = df.iloc[0]
+    st.header("🧠 Personalized Health Intelligence")
 
-    st.subheader("🧠 Body State Overview")
+    st.subheader(f"Detected State: {condition.replace('_',' ').title()}")
+    st.write(f"Focus: {protocol['focus']}")
 
-    col1, col2, col3 = st.columns(3)
+    st.subheader("🍽 Recommended Foods")
 
-    col1.metric("Recovery", latest["recovery"])
-    col2.metric("Sleep", latest["sleep_hours"])
-    col3.metric("Strain", latest["strain"])
+    for food in protocol["foods"]:
+        st.markdown(f"### {food}")
 
-    st.markdown("### 🔥 Physiological Interpretation")
-    st.info(interpret_body_state(latest))
+        if condition == "prediabetic_risk":
+            st.write(
+                f"{food} helps regulate blood sugar levels by improving insulin response "
+                "and reducing glucose spikes."
+            )
 
-    st.markdown("### ⚡ Energy State")
-    st.success(f"{latest['energy_state']}")
+        elif condition == "inflammation":
+            st.write(
+                f"{food} reduces inflammation, helping relieve body pain and improve recovery."
+            )
 
-    st.markdown("### 🧘 Stress State")
-    st.warning(f"{latest['stress_state']}")
+        else:
+            st.write(
+                f"{food} supports overall performance, muscle growth, and metabolic health."
+            )
 
-    st.markdown("### 🧭 Body Context Mode")
-    st.code(physiology_context(latest))
-
-    st.markdown("### 📊 Trend View")
-    st.line_chart(df.set_index("date")[["recovery", "strain"]])
+    st.success("Your nutrition is now tailored to your biological state and food quality.")
