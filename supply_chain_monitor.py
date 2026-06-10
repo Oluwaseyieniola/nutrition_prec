@@ -9,7 +9,8 @@ st.set_page_config(page_title="Precision Nutrition Unified MVP", layout="centere
 # =====================================================================
 # UTILITIES
 # =====================================================================
-def roundf(x, d=1): return round(float(x), d)
+def roundf(x, d=1): 
+    return round(float(x), d)
 
 # =====================================================================
 # WEARABLE SIMULATION
@@ -31,7 +32,7 @@ def gen_wearable(days=7, seed=42):
     return pd.DataFrame(rows)
 
 # =====================================================================
-# 🔬 SUPPLY CHAIN MODEL
+# SUPPLY CHAIN MODEL
 # =====================================================================
 def simulate_supply_detailed(food):
     seed = int(hashlib.md5(food.encode()).hexdigest(), 16) % 10**6
@@ -78,7 +79,7 @@ def simulate_supply_detailed(food):
     return pd.DataFrame(data)
 
 # =====================================================================
-# 🧠 BIOLOGICAL MAPPING
+# BIOLOGICAL MAPPING
 # =====================================================================
 bio_map = {
     "Vitamin C": ("Collagen synthesis", "Reduces inflammation & supports tissue repair"),
@@ -87,7 +88,7 @@ bio_map = {
 }
 
 # =====================================================================
-# 🧬 CONDITION DETECTION
+# CONDITION DETECTION
 # =====================================================================
 def detect_condition(user):
     if user["goal"] == "glucose_control" or user["BMI"] > 28:
@@ -97,92 +98,193 @@ def detect_condition(user):
     else:
         return "general_fitness"
 
-condition_protocols = {
-    "prediabetic_risk": {
-        "focus": "Improve insulin sensitivity",
-        "foods": ["Blueberries", "Oats", "Lentils"]
-    },
-    "inflammation": {
-        "focus": "Reduce inflammation & pain",
-        "foods": ["Salmon", "Spinach", "Blueberries"]
-    },
-    "general_fitness": {
-        "focus": "Optimize performance & recovery",
-        "foods": ["Eggs", "Chicken Breast", "Avocado"]
-    }
-}
-
 # =====================================================================
-# 🧾 SUPPLY CHAIN NARRATIVE ENGINE
+# SUPPLY CHAIN STORY ENGINE
 # =====================================================================
 def build_supply_chain_story(food, df):
     story = []
 
-    story.append(f"🌱 {food} begins its lifecycle in agricultural environments where soil quality, climate, and farming practices define its baseline nutrient density.")
+    story.append(f"🌱 {food} begins its lifecycle in controlled agricultural environments.")
 
     for _, row in df.iterrows():
         stage = row["Stage"]
 
         if stage == "Farm Cultivation":
-            story.append(f"Farm stage: environmental conditions shape initial nutrient profile at {row['Temperature (°C)']}°C.")
+            story.append(f"Farm stage: temperature {row['Temperature (°C)']}°C influences nutrient formation.")
         elif stage == "Harvest":
-            story.append("Harvest stage: mechanical handling introduces oxidative stress and nutrient loss.")
+            story.append("Harvest introduces oxidative stress affecting nutrient stability.")
         elif stage == "Post-Harvest Handling":
-            story.append(f"Post-harvest: humidity at {row['Humidity (%)']}% influences microbial activity and degradation.")
+            story.append("Handling increases exposure to oxygen and microbial activity.")
         elif stage == "Cold Storage":
-            story.append("Cold storage slows but does not stop enzymatic nutrient decay.")
+            story.append("Cold storage slows enzymatic nutrient breakdown.")
         elif stage == "Transportation":
-            story.append("Transport introduces thermal fluctuations that accelerate nutrient breakdown.")
+            story.append("Transport introduces temperature variability affecting degradation.")
         elif stage == "Retail Shelf":
-            story.append("Retail shelf exposure determines final nutrient availability at consumption.")
+            story.append("Shelf time determines final nutrient availability at consumption.")
 
-    story.append("🥗 Final nutritional value is the cumulative result of all upstream losses.")
-
+    story.append("🥗 Final nutritional value is cumulative across all stages.")
     return "\n\n".join(story)
 
 # =====================================================================
-# 🧠 HEALTH IMPACT ENGINE
+# HEALTH IMPACT ENGINE
 # =====================================================================
-def health_impact_engine(food, df, condition):
-    final = df.iloc[-1]
-
+def health_impact_engine(food, condition):
     if condition == "prediabetic_risk":
         return f"""
-🧠 Prediabetes Risk Impact:
+🧠 Prediabetes Metabolic Impact:
 
-- Polyphenols: supports insulin sensitivity
-- {food}: reduces glucose spikes and metabolic stress
+- {food} improves insulin sensitivity via polyphenols
+- Reduces post-meal glucose spikes
+- Supports metabolic stabilization
 """
 
     elif condition == "inflammation":
         return f"""
-🧠 Inflammation & Pain Impact:
+🧠 Inflammation Impact:
 
-- Vitamin C supports tissue repair
-- Polyphenols reduce inflammatory pathways
-- {food} helps reduce muscle soreness and systemic inflammation
+- {food} reduces inflammatory cytokines
+- Supports muscle recovery and tissue repair
+- Lowers systemic oxidative stress
 """
 
     else:
         return f"""
 🧠 Performance Impact:
 
-- Protein supports muscle synthesis
-- Balanced micronutrients improve recovery
-- {food} enhances metabolic efficiency
+- {food} supports energy stability and recovery
+- Enhances metabolic efficiency and muscle maintenance
 """
 
 # =====================================================================
-# 🏪 DUBAI STORE INTELLIGENCE
+# DUBAI STORE INTELLIGENCE
 # =====================================================================
 def dubai_store_intelligence(food):
     stores = [
-        {"Store": "Carrefour UAE", "Type": "Hypermarket", "Quality": "Medium", "Best For": "Affordable groceries"},
-        {"Store": "Spinneys Dubai", "Type": "Premium supermarket", "Quality": "High", "Best For": "Fresh produce & organic foods"},
-        {"Store": "Waitrose Dubai", "Type": "Imported premium", "Quality": "Very High", "Best For": "Specialty foods & imports"}
+        {"Store": "Carrefour UAE", "Type": "Hypermarket", "Quality": "Medium"},
+        {"Store": "Spinneys Dubai", "Type": "Premium Supermarket", "Quality": "High"},
+        {"Store": "Waitrose Dubai", "Type": "Imported Goods", "Quality": "Very High"}
     ]
-
     return pd.DataFrame(stores)
+
+# =====================================================================
+# MEAL GENERATION ENGINE (NEW CORE UPGRADE)
+# =====================================================================
+def generate_meal_plan(condition, goal):
+
+    if condition == "prediabetic_risk":
+        return [
+            {
+                "meal": "🥣 Morning Glycemic Control Bowl",
+                "timing": "08:00 - 10:00",
+                "macro": "40C / 30P / 30F",
+                "components": {
+                    "Base": "Steel-cut oats + chia seeds",
+                    "Protein": "Greek yogurt",
+                    "Fat": "Almonds + flaxseed",
+                    "Fruit": "Blueberries"
+                },
+                "why": "Stabilizes blood glucose and reduces insulin spikes"
+            },
+            {
+                "meal": "🥗 Midday Metabolic Stability Bowl",
+                "timing": "13:00 - 15:00",
+                "macro": "30C / 40P / 30F",
+                "components": {
+                    "Protein": "Grilled chicken or tofu",
+                    "Carbs": "Quinoa",
+                    "Veg": "Spinach, broccoli",
+                    "Fat": "Olive oil"
+                },
+                "why": "Improves insulin sensitivity and sustained energy"
+            },
+            {
+                "meal": "🍲 Evening Low-GI Dinner",
+                "timing": "18:00 - 20:00",
+                "macro": "10C / 45P / 45F",
+                "components": {
+                    "Protein": "Salmon",
+                    "Veg": "Zucchini, kale",
+                    "Fat": "Avocado"
+                },
+                "why": "Minimizes nighttime glucose load"
+            }
+        ]
+
+    elif condition == "inflammation":
+        return [
+            {
+                "meal": "🥤 Anti-Inflammatory Smoothie Bowl",
+                "timing": "08:00 - 10:00",
+                "macro": "45C / 25P / 30F",
+                "components": {
+                    "Base": "Spinach + kale",
+                    "Fruit": "Blueberries + pineapple",
+                    "Fat": "Walnuts + flaxseed",
+                    "Liquid": "Almond milk"
+                },
+                "why": "Reduces systemic inflammation and oxidative stress"
+            },
+            {
+                "meal": "🍛 Recovery Lunch Bowl",
+                "timing": "13:00 - 15:00",
+                "macro": "35C / 35P / 30F",
+                "components": {
+                    "Protein": "Salmon",
+                    "Carbs": "Brown rice",
+                    "Veg": "Broccoli, turmeric carrots",
+                    "Fat": "Olive oil"
+                },
+                "why": "Supports recovery and reduces inflammation"
+            },
+            {
+                "meal": "🍵 Healing Soup Dinner",
+                "timing": "18:00 - 20:00",
+                "macro": "20C / 40P / 40F",
+                "components": {
+                    "Base": "Bone broth",
+                    "Protein": "Lentils",
+                    "Veg": "Garlic, ginger, greens"
+                },
+                "why": "Supports overnight tissue repair"
+            }
+        ]
+
+    else:
+        return [
+            {
+                "meal": "🍳 Performance Breakfast",
+                "timing": "07:00 - 09:00",
+                "macro": "35C / 35P / 30F",
+                "components": {
+                    "Protein": "Eggs + yogurt",
+                    "Carbs": "Oats",
+                    "Fat": "Avocado"
+                },
+                "why": "Balanced energy and muscle support"
+            },
+            {
+                "meal": "🥗 Balanced Lunch",
+                "timing": "12:00 - 14:00",
+                "macro": "40C / 35P / 25F",
+                "components": {
+                    "Protein": "Chicken",
+                    "Carbs": "Brown rice",
+                    "Veg": "Mixed greens"
+                },
+                "why": "Stable energy and cognitive performance"
+            },
+            {
+                "meal": "🍲 Light Dinner",
+                "timing": "18:00 - 20:00",
+                "macro": "20C / 40P / 40F",
+                "components": {
+                    "Protein": "Fish",
+                    "Veg": "Steamed vegetables",
+                    "Fat": "Olive oil"
+                },
+                "why": "Supports overnight recovery"
+            }
+        ]
 
 # =====================================================================
 # UI
@@ -221,35 +323,33 @@ if page.startswith("1️⃣"):
         }
 
         st.dataframe(w)
-        st.line_chart(w.set_index("date")[["steps","HRV","sleep_eff"]])
 
 # ---------------------------------------------------------------------
-# PAGE 2 (UPGRADED)
+# PAGE 2
 # ---------------------------------------------------------------------
 elif page.startswith("2️⃣"):
-    st.header("🔬 Farm → Plate Intelligence System")
+    st.header("🔬 Farm → Plate Intelligence")
 
     food = st.selectbox("Select Food", ["Salmon","Oats","Blueberries","Lentils","Spinach"])
 
     df = simulate_supply_detailed(food)
 
-    st.subheader("📦 Supply Chain Data")
+    st.subheader("Supply Chain Data")
     st.dataframe(df)
 
-    st.subheader("📉 Nutrient Degradation")
+    st.subheader("Nutrient Degradation")
     st.line_chart(df.set_index("Stage")[["Vitamin C","Protein","Polyphenols"]])
 
-    st.subheader("🧾 Food Journey Narrative")
-    story = build_supply_chain_story(food, df)
-    st.write(story)
+    st.subheader("Narrative Explanation")
+    st.write(build_supply_chain_story(food, df))
 
     user = st.session_state.get("user", {})
     condition = detect_condition(user) if user else "general_fitness"
 
-    st.subheader("🧠 Health Impact")
-    st.write(health_impact_engine(food, df, condition))
+    st.subheader("Health Impact")
+    st.write(health_impact_engine(food, condition))
 
-    st.subheader("🏪 Dubai Store Availability")
+    st.subheader("Dubai Stores")
     st.dataframe(dubai_store_intelligence(food))
 
 # ---------------------------------------------------------------------
@@ -263,18 +363,24 @@ elif page.startswith("3️⃣"):
         st.stop()
 
     condition = detect_condition(user)
-    protocol = condition_protocols[condition]
 
-    st.header("🧠 Personalized Nutrition")
+    st.header("🧠 Whole Meal Nutrition System")
 
-    st.write(f"Condition: {condition}")
-    st.write(f"Focus: {protocol['focus']}")
+    meals = generate_meal_plan(condition, user["goal"])
 
-    for food in protocol["foods"]:
-        st.markdown(f"### {food}")
+    st.subheader(f"Condition: {condition}")
 
-        st.write(
-            f"{food} is recommended based on your biological state and supports metabolic regulation."
-        )
+    for m in meals:
+        st.markdown(f"## {m['meal']}")
+        st.write(f"⏱ {m['timing']}  |  ⚖ {m['macro']}")
 
-    st.success("System is now adapting nutrition to your physiology + food supply chain quality.")
+        st.markdown("### Components")
+        for k, v in m["components"].items():
+            st.write(f"- {k}: {v}")
+
+        st.markdown("### Why this meal works")
+        st.write(m["why"])
+
+        st.divider()
+
+    st.success("Meals optimized for physiology + supply chain intelligence.")
