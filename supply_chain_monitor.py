@@ -11,7 +11,9 @@ st.set_page_config(page_title="Precision Nutrition Unified MVP", layout="centere
 # =====================================================================
 def roundf(x, d=1): return round(float(x), d)
 
-# ---------- wearable simulation ----------
+# =====================================================================
+# WEARABLE SIMULATION
+# =====================================================================
 def gen_wearable(days=7, seed=42):
     np.random.seed(seed)
     base = datetime.date.today()
@@ -29,7 +31,7 @@ def gen_wearable(days=7, seed=42):
     return pd.DataFrame(rows)
 
 # =====================================================================
-# 🔬 DETAILED SUPPLY CHAIN MODEL
+# 🔬 SUPPLY CHAIN MODEL
 # =====================================================================
 def simulate_supply_detailed(food):
     seed = int(hashlib.md5(food.encode()).hexdigest(), 16) % 10**6
@@ -58,7 +60,6 @@ def simulate_supply_detailed(food):
         humidity = np.random.uniform(40, 95)
         days = np.random.uniform(0.5, 5)
 
-        # exponential decay
         decay_factor = np.exp(-0.05 * days * (temp / 25))
 
         for k in nutrient_state:
@@ -80,8 +81,8 @@ def simulate_supply_detailed(food):
 # 🧠 BIOLOGICAL MAPPING
 # =====================================================================
 bio_map = {
-    "Vitamin C": ("Collagen synthesis", "Reduces pain & inflammation, supports recovery"),
-    "Protein": ("Muscle protein synthesis", "Builds muscle and repairs tissue"),
+    "Vitamin C": ("Collagen synthesis", "Reduces inflammation & supports tissue repair"),
+    "Protein": ("Muscle protein synthesis", "Builds and repairs muscle tissue"),
     "Polyphenols": ("Antioxidant + insulin regulation", "Improves insulin sensitivity")
 }
 
@@ -112,10 +113,84 @@ condition_protocols = {
 }
 
 # =====================================================================
-# NAVIGATION
+# 🧾 SUPPLY CHAIN NARRATIVE ENGINE
+# =====================================================================
+def build_supply_chain_story(food, df):
+    story = []
+
+    story.append(f"🌱 {food} begins its lifecycle in agricultural environments where soil quality, climate, and farming practices define its baseline nutrient density.")
+
+    for _, row in df.iterrows():
+        stage = row["Stage"]
+
+        if stage == "Farm Cultivation":
+            story.append(f"Farm stage: environmental conditions shape initial nutrient profile at {row['Temperature (°C)']}°C.")
+        elif stage == "Harvest":
+            story.append("Harvest stage: mechanical handling introduces oxidative stress and nutrient loss.")
+        elif stage == "Post-Harvest Handling":
+            story.append(f"Post-harvest: humidity at {row['Humidity (%)']}% influences microbial activity and degradation.")
+        elif stage == "Cold Storage":
+            story.append("Cold storage slows but does not stop enzymatic nutrient decay.")
+        elif stage == "Transportation":
+            story.append("Transport introduces thermal fluctuations that accelerate nutrient breakdown.")
+        elif stage == "Retail Shelf":
+            story.append("Retail shelf exposure determines final nutrient availability at consumption.")
+
+    story.append("🥗 Final nutritional value is the cumulative result of all upstream losses.")
+
+    return "\n\n".join(story)
+
+# =====================================================================
+# 🧠 HEALTH IMPACT ENGINE
+# =====================================================================
+def health_impact_engine(food, df, condition):
+    final = df.iloc[-1]
+
+    if condition == "prediabetic_risk":
+        return f"""
+🧠 Prediabetes Risk Impact:
+
+- Polyphenols: supports insulin sensitivity
+- {food}: reduces glucose spikes and metabolic stress
+"""
+
+    elif condition == "inflammation":
+        return f"""
+🧠 Inflammation & Pain Impact:
+
+- Vitamin C supports tissue repair
+- Polyphenols reduce inflammatory pathways
+- {food} helps reduce muscle soreness and systemic inflammation
+"""
+
+    else:
+        return f"""
+🧠 Performance Impact:
+
+- Protein supports muscle synthesis
+- Balanced micronutrients improve recovery
+- {food} enhances metabolic efficiency
+"""
+
+# =====================================================================
+# 🏪 DUBAI STORE INTELLIGENCE
+# =====================================================================
+def dubai_store_intelligence(food):
+    stores = [
+        {"Store": "Carrefour UAE", "Type": "Hypermarket", "Quality": "Medium", "Best For": "Affordable groceries"},
+        {"Store": "Spinneys Dubai", "Type": "Premium supermarket", "Quality": "High", "Best For": "Fresh produce & organic foods"},
+        {"Store": "Waitrose Dubai", "Type": "Imported premium", "Quality": "Very High", "Best For": "Specialty foods & imports"}
+    ]
+
+    return pd.DataFrame(stores)
+
+# =====================================================================
+# UI
 # =====================================================================
 st.title("🥗 Precision Nutrition + Supply Chain Intelligence")
-page = st.sidebar.radio("Navigation",
+
+page = st.sidebar.radio(
+    "Navigation",
     ["1️⃣ Profile & Wearables","2️⃣ Supply Chain Deep Dive","3️⃣ Smart Recommendations"]
 )
 
@@ -123,93 +198,83 @@ page = st.sidebar.radio("Navigation",
 # PAGE 1
 # ---------------------------------------------------------------------
 if page.startswith("1️⃣"):
-    st.header("User Profile and Wearable Data")
+    st.header("User Profile")
 
     with st.form("profile"):
         age = st.number_input("Age",18,80,35)
         sex = st.selectbox("Sex",["F","M"])
         BMI = st.number_input("BMI",15.0,40.0,25.0)
         goal = st.selectbox("Goal",["weight_loss","energy_boost","glucose_control"])
-        activity = st.selectbox("Activity Level",["low","moderate","high"])
-        stress = st.selectbox("Stress",["low","medium","high"])
         sleep = st.number_input("Sleep Hours",4.0,9.0,7.0)
         submit = st.form_submit_button("Generate")
 
     if submit:
         w = gen_wearable()
+
         st.session_state["user"] = {
-            "age":age,"sex":sex,"BMI":BMI,"goal":goal,
-            "activity":activity,"stress":stress,"sleep":sleep,
-            "HRV":int(w.HRV.mean()),"strain":float(w.strain.mean())
+            "age": age,
+            "sex": sex,
+            "BMI": BMI,
+            "goal": goal,
+            "sleep": sleep,
+            "strain": float(w.strain.mean())
         }
 
         st.dataframe(w)
         st.line_chart(w.set_index("date")[["steps","HRV","sleep_eff"]])
 
 # ---------------------------------------------------------------------
-# PAGE 2 – 🔥 DETAILED TRACE
+# PAGE 2 (UPGRADED)
 # ---------------------------------------------------------------------
 elif page.startswith("2️⃣"):
-    st.header("🔬 Full Food Journey: Farm → Plate")
+    st.header("🔬 Farm → Plate Intelligence System")
 
     food = st.selectbox("Select Food", ["Salmon","Oats","Blueberries","Lentils","Spinach"])
 
     df = simulate_supply_detailed(food)
 
-    st.subheader("📦 Supply Chain Trace Data")
+    st.subheader("📦 Supply Chain Data")
     st.dataframe(df)
 
-    st.subheader("📉 Nutrient Degradation Across Stages")
+    st.subheader("📉 Nutrient Degradation")
     st.line_chart(df.set_index("Stage")[["Vitamin C","Protein","Polyphenols"]])
 
-    st.subheader("🌡 Environmental Exposure")
-    st.bar_chart(df.set_index("Stage")[["Temperature (°C)","Humidity (%)"]])
+    st.subheader("🧾 Food Journey Narrative")
+    story = build_supply_chain_story(food, df)
+    st.write(story)
 
-    st.subheader("🧠 Biological Meaning")
-    for nutrient, (func, impact) in bio_map.items():
-        st.markdown(f"**{nutrient}**")
-        st.write(f"- Function: {func}")
-        st.write(f"- Effect: {impact}")
+    user = st.session_state.get("user", {})
+    condition = detect_condition(user) if user else "general_fitness"
 
-    st.session_state["last_food_trace"] = df
+    st.subheader("🧠 Health Impact")
+    st.write(health_impact_engine(food, df, condition))
+
+    st.subheader("🏪 Dubai Store Availability")
+    st.dataframe(dubai_store_intelligence(food))
 
 # ---------------------------------------------------------------------
-# PAGE 3 – 🧬 INTELLIGENT RECOMMENDATIONS
+# PAGE 3
 # ---------------------------------------------------------------------
 elif page.startswith("3️⃣"):
     user = st.session_state.get("user")
 
     if not user:
-        st.warning("Please complete Profile first")
+        st.warning("Complete profile first")
         st.stop()
 
     condition = detect_condition(user)
     protocol = condition_protocols[condition]
 
-    st.header("🧠 Personalized Health Intelligence")
+    st.header("🧠 Personalized Nutrition")
 
-    st.subheader(f"Detected State: {condition.replace('_',' ').title()}")
+    st.write(f"Condition: {condition}")
     st.write(f"Focus: {protocol['focus']}")
-
-    st.subheader("🍽 Recommended Foods")
 
     for food in protocol["foods"]:
         st.markdown(f"### {food}")
 
-        if condition == "prediabetic_risk":
-            st.write(
-                f"{food} helps regulate blood sugar levels by improving insulin response "
-                "and reducing glucose spikes."
-            )
+        st.write(
+            f"{food} is recommended based on your biological state and supports metabolic regulation."
+        )
 
-        elif condition == "inflammation":
-            st.write(
-                f"{food} reduces inflammation, helping relieve body pain and improve recovery."
-            )
-
-        else:
-            st.write(
-                f"{food} supports overall performance, muscle growth, and metabolic health."
-            )
-
-    st.success("Your nutrition is now tailored to your biological state and food quality.")
+    st.success("System is now adapting nutrition to your physiology + food supply chain quality.")
